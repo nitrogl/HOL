@@ -27,7 +27,7 @@ Datatype `bil_regtype_t =
 Datatype `bil_type_t =
     NoType
   | Reg      bil_regtype_t
-  | MemByte  bil_regtype_t
+  | MemByte  bil_regtype_t (* address type *)
   | MemArray bil_regtype_t bil_regtype_t
 `;
 
@@ -53,7 +53,7 @@ Datatype `bil_var_t =
 Datatype `bil_val_t =
     Unknown
   | Int   bil_int_t
-  | Mem   bil_regtype_t (bil_int_t -> bil_int_t)
+  | Mem   bil_regtype_t (bil_int_t -> bil_int_t) (* address type *)
   | Array bil_regtype_t bil_regtype_t (bil_int_t -> bil_int_t)
 `;
 
@@ -697,44 +697,44 @@ val bil_eval_exp_def = Define `bil_eval_exp exp (env:environment) = case exp of
         let address = bil_eval_exp e2 env in
         let bigendian = bil_eval_exp e3 env in
         case (mem, address, bigendian) of
-            (Mem ta map, Int a, Int be) => (
+            (Mem ta mmap, Int a, Int be) => (
               if ((bil_regtype_int_inf a) = ta)
               then
                 case t of
-                    Bit1   => Int (if (map a) = 0c then 0b else 1b)
-                  | Bit8   => Int (map a)
+                    Bit1   => Int (if (mmap a) = 0c then 0b else 1b)
+                  | Bit8   => Int (mmap a)
                   | Bit16  => if be = 0b
                               then Int (
                                 bil_or
-                                  ((bil_cast (map (a + (bil_cast 1c ta))) Bit16) << 8d)
-                                  (bil_cast (map a) Bit16)
+                                  ((bil_cast (mmap (a + (bil_cast 1c ta))) Bit16) << 8d)
+                                  (bil_cast (mmap a) Bit16)
                                 )
                               else Int (
                                 bil_or
-                                  ((bil_cast (map a) Bit16) << 8d)
-                                  (bil_cast (map (a + (bil_cast 1c ta))) Bit16)
+                                  ((bil_cast (mmap a) Bit16) << 8d)
+                                  (bil_cast (mmap (a + (bil_cast 1c ta))) Bit16)
                                 )
                   | Bit32  => if be = 0b
                               then Int (
                                 bil_or
                                   (bil_or
-                                    ((bil_cast (map (a + (bil_cast 3c ta))) Bit32) << 24e)
-                                    ((bil_cast (map (a + (bil_cast 2c ta))) Bit32) << 16e)
+                                    ((bil_cast (mmap (a + (bil_cast 3c ta))) Bit32) << 24e)
+                                    ((bil_cast (mmap (a + (bil_cast 2c ta))) Bit32) << 16e)
                                   )
                                   (bil_or
-                                    ((bil_cast (map (a + (bil_cast 1c ta))) Bit32) << 8e)
-                                    (bil_cast (map a) Bit32)
+                                    ((bil_cast (mmap (a + (bil_cast 1c ta))) Bit32) << 8e)
+                                    (bil_cast (mmap a) Bit32)
                                   )
                                 )
                               else Int (
                                 bil_or
                                   (bil_or
-                                    ((bil_cast (map a) Bit32) << 24e)
-                                    ((bil_cast (map (a + (bil_cast 1c ta))) Bit32) << 16e)
+                                    ((bil_cast (mmap a) Bit32) << 24e)
+                                    ((bil_cast (mmap (a + (bil_cast 1c ta))) Bit32) << 16e)
                                   )
                                   (bil_or
-                                    ((bil_cast (map (a + (bil_cast 2c ta))) Bit32) << 8e)
-                                    (bil_cast (map (a + (bil_cast 3c ta))) Bit32)
+                                    ((bil_cast (mmap (a + (bil_cast 2c ta))) Bit32) << 8e)
+                                    (bil_cast (mmap (a + (bil_cast 3c ta))) Bit32)
                                   )
                                 )
                   | Bit64  => if be = 0b
@@ -742,22 +742,22 @@ val bil_eval_exp_def = Define `bil_eval_exp exp (env:environment) = case exp of
                                 bil_or
                                   (bil_or
                                     (bil_or
-                                      ((bil_cast (map (a + (bil_cast 7c ta))) Bit64) << 56x)
-                                      ((bil_cast (map (a + (bil_cast 6c ta))) Bit64) << 48x)
+                                      ((bil_cast (mmap (a + (bil_cast 7c ta))) Bit64) << 56x)
+                                      ((bil_cast (mmap (a + (bil_cast 6c ta))) Bit64) << 48x)
                                     )
                                     (bil_or
-                                      ((bil_cast (map (a + (bil_cast 5c ta))) Bit64) << 40x)
-                                      ((bil_cast (map (a + (bil_cast 4c ta))) Bit64) << 32x)
+                                      ((bil_cast (mmap (a + (bil_cast 5c ta))) Bit64) << 40x)
+                                      ((bil_cast (mmap (a + (bil_cast 4c ta))) Bit64) << 32x)
                                     )
                                   )
                                   (bil_or
                                     (bil_or
-                                      ((bil_cast (map (a + (bil_cast 3c ta))) Bit64) << 24x)
-                                      ((bil_cast (map (a + (bil_cast 2c ta))) Bit64) << 16x)
+                                      ((bil_cast (mmap (a + (bil_cast 3c ta))) Bit64) << 24x)
+                                      ((bil_cast (mmap (a + (bil_cast 2c ta))) Bit64) << 16x)
                                     )
                                     (bil_or
-                                      ((bil_cast (map (a + (bil_cast 1c ta))) Bit64) << 8x)
-                                      (bil_cast (map a) Bit64)
+                                      ((bil_cast (mmap (a + (bil_cast 1c ta))) Bit64) << 8x)
+                                      (bil_cast (mmap a) Bit64)
                                     )
                                   )
                                 )
@@ -765,22 +765,22 @@ val bil_eval_exp_def = Define `bil_eval_exp exp (env:environment) = case exp of
                                 bil_or
                                   (bil_or
                                     (bil_or
-                                      ((bil_cast (map a) Bit64) << 56x)
-                                      ((bil_cast (map (a + (bil_cast 1c ta))) Bit64) << 48x)
+                                      ((bil_cast (mmap a) Bit64) << 56x)
+                                      ((bil_cast (mmap (a + (bil_cast 1c ta))) Bit64) << 48x)
                                     )
                                     (bil_or
-                                      ((bil_cast (map (a + (bil_cast 2c ta))) Bit64) << 40x)
-                                      ((bil_cast (map (a + (bil_cast 3c ta))) Bit64) << 32x)
+                                      ((bil_cast (mmap (a + (bil_cast 2c ta))) Bit64) << 40x)
+                                      ((bil_cast (mmap (a + (bil_cast 3c ta))) Bit64) << 32x)
                                     )
                                   )
                                   (bil_or
                                     (bil_or
-                                      ((bil_cast (map (a + (bil_cast 4c ta))) Bit64) << 24x)
-                                      ((bil_cast (map (a + (bil_cast 5c ta))) Bit64) << 16x)
+                                      ((bil_cast (mmap (a + (bil_cast 4c ta))) Bit64) << 24x)
+                                      ((bil_cast (mmap (a + (bil_cast 5c ta))) Bit64) << 16x)
                                     )
                                     (bil_or
-                                      ((bil_cast (map (a + (bil_cast 6c ta))) Bit64) << 8x)
-                                      (bil_cast (map (a + (bil_cast 7c ta))) Bit64)
+                                      ((bil_cast (mmap (a + (bil_cast 6c ta))) Bit64) << 8x)
+                                      (bil_cast (mmap (a + (bil_cast 7c ta))) Bit64)
                                     )
                                   )
                                 )
@@ -788,10 +788,10 @@ val bil_eval_exp_def = Define `bil_eval_exp exp (env:environment) = case exp of
               (* Can't use addresses of different types *)
               else Unknown
               )
-          | (Array ta tv map, Int a, _) => (
+          | (Array ta tv mmap, Int a, _) => (
               if ((bil_regtype_int_inf a) = ta)
               then
-                  Int (map a)
+                  Int (mmap a)
                 
               (* Can't use addresses of different types *)
               else Unknown
@@ -810,30 +810,30 @@ val bil_eval_exp_def = Define `bil_eval_exp exp (env:environment) = case exp of
         let newval = bil_eval_exp e3 env in
         let bigendian = bil_eval_exp e4 env in
         case (mem, address, newval, bigendian) of
-            (Mem ta map, Int a, Int v, Int be) => (
+            (Mem ta mmap, Int a, Int v, Int be) => (
               if ((bil_regtype_int_inf a) = ta) /\ ((bil_regtype_int_inf v) = t)
               then
                 case t of
-                    Bit1   => Mem ta ((a =+ (if v = 0b then 0c else 1c)) map)
-                  | Bit8   => Mem ta ((a =+ v) map)
+                    Bit1   => Mem ta ((a =+ (if v = 0b then 0c else 1c)) mmap)
+                  | Bit8   => Mem ta ((a =+ v) mmap)
                   | Bit16  => if be = 0b
                               then Mem ta ((a                     =+ (bil_lcast v Bit8)) (
                                           ((a + (bil_cast 1c ta)) =+ (bil_hcast v Bit8))
-                                   map))
+                                   mmap))
                               else Mem ta ((a                     =+ (bil_hcast v Bit8)) (
                                           ((a + (bil_cast 1c ta)) =+ (bil_lcast v Bit8))
-                                   map))
+                                   mmap))
                   | Bit32  => if be = 0b
                               then Mem ta ((a                     =+ (bil_lcast v Bit8)) (
                                           ((a + (bil_cast 1c ta)) =+ (bil_hcast (bil_lcast v Bit16) Bit8)) (
                                           ((a + (bil_cast 2c ta)) =+ (bil_lcast (bil_hcast v Bit16) Bit8)) (
                                           ((a + (bil_cast 3c ta)) =+ (bil_hcast v Bit8))
-                                   map))))
+                                   mmap))))
                               else Mem ta ((a                     =+ (bil_hcast v Bit8)) (
                                           ((a + (bil_cast 1c ta)) =+ (bil_lcast (bil_hcast v Bit16) Bit8)) (
                                           ((a + (bil_cast 2c ta)) =+ (bil_hcast (bil_lcast v Bit16) Bit8)) (
                                           ((a + (bil_cast 3c ta)) =+ (bil_lcast v Bit8))
-                                   map))))
+                                   mmap))))
                   | Bit64  => if be = 0b
                               then Mem ta ((a                     =+ (bil_lcast v Bit8)) (
                                           ((a + (bil_cast 1c ta)) =+ (bil_hcast (bil_lcast v Bit16) Bit8)) (
@@ -843,7 +843,7 @@ val bil_eval_exp_def = Define `bil_eval_exp exp (env:environment) = case exp of
                                           ((a + (bil_cast 5c ta)) =+ (bil_hcast (bil_lcast (bil_hcast v Bit32) Bit16) Bit8)) (
                                           ((a + (bil_cast 6c ta)) =+ (bil_lcast (bil_hcast v Bit16) Bit8)) (
                                           ((a + (bil_cast 7c ta)) =+ (bil_hcast v Bit8))
-                                   map))))))))
+                                   mmap))))))))
                               else Mem ta ((a                     =+ (bil_hcast v Bit8)) (
                                           ((a + (bil_cast 1c ta)) =+ (bil_lcast (bil_hcast v Bit16) Bit8)) (
                                           ((a + (bil_cast 2c ta)) =+ (bil_hcast (bil_lcast (bil_hcast v Bit32) Bit16) Bit8)) (
@@ -852,15 +852,15 @@ val bil_eval_exp_def = Define `bil_eval_exp exp (env:environment) = case exp of
                                           ((a + (bil_cast 5c ta)) =+ (bil_lcast (bil_hcast (bil_lcast v Bit32) Bit16) Bit8)) (
                                           ((a + (bil_cast 6c ta)) =+ (bil_hcast (bil_lcast v Bit16) Bit8)) (
                                           ((a + (bil_cast 7c ta)) =+ (bil_lcast v Bit8))
-                                   map))))))))
+                                   mmap))))))))
                 
               (* Can't use addresses of different types *)
               else Unknown
               )
-          | (Array ta tv map, Int a, Int v, _) => (
+          | (Array ta tv mmap, Int a, Int v, _) => (
               if ((bil_regtype_int_inf a) = ta) /\ ((bil_regtype_int_inf v) = tv)
               then
-                  Array ta tv ((a =+ v) map)
+                  Array ta tv ((a =+ v) mmap)
                 
               (* Can't use addresses of different types *)
               else Unknown
@@ -896,15 +896,15 @@ val bil_exec_stmt_def = Define `bil_exec_stmt stmt env = case stmt of
       )
   | Assign v e => (
       case env v, bil_eval_exp e env of
-          (t, _), Int nexp                       => let texp = bil_type_int_inf nexp in
+          (t, _), Int nexp                        => let texp = bil_type_int_inf nexp in
                                                     if (t = texp)
                                                       then (v =+ (t, Int nexp)) env
                                                       else set_env_irregular env
-        | (MemByte t, _), Mem ta map             => if (t = ta)
-                                                      then (v =+ (MemByte t, Mem ta map)) env
+        | (MemByte t, _), Mem ta mmap             => if (t = ta)
+                                                      then (v =+ (MemByte t, Mem ta mmap)) env
                                                       else set_env_irregular env
-        | (MemArray ta tv, _), Array tta ttv map => if (ta = tta) /\ (tv = ttv)
-                                                      then (v =+ (MemArray ta tv, Array tta ttv map)) env
+        | (MemArray ta tv, _), Array tta ttv mmap => if (ta = tta) /\ (tv = ttv)
+                                                      then (v =+ (MemArray ta tv, Array tta ttv mmap)) env
                                                       else set_env_irregular env
         (* Kind of redeclarations... they seems to be out of BIL semantics *)
 (*         | (t, _), Unknown                        => (v =+ (t, Unknown)) env *)
