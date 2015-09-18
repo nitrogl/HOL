@@ -6,6 +6,7 @@
 (* DATE          : 2015                                                      *)
 (* ========================================================================= *)
 
+open HolKernel bossLib Parse;
 load "wordsTheory";
 open wordsTheory;
 
