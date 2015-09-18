@@ -987,7 +987,7 @@ val bil_exec_step_def = Define `bil_exec_step p state = case state.pco of
 `;
 
 val bil_pcinit_def = Define `bil_pcinit (p:program) = let bl = EL 0 p in <| label := bl.label ; index := 0 |>`;
-val bil_statusinit_def = Define `bil_statusinit (p:program) = <|
+val bil_stateinit_def = Define `bil_stateinit (p:program) = <|
   pco      := SOME (bil_pcinit p) ;
   environ  := (λx.(NoType, Unknown)):environment ;
   termcode := Unknown ;
