@@ -948,42 +948,42 @@ val bil_pcnext_def = Define `
   )
 `;
 
-Datatype `stepstatus = <|
+Datatype `stepstate = <|
   pco:programcounter option ;
   environ:environment ;
   termcode:bil_val_t ;
   debug:string list
 |>`;
-val bil_stepstatus_pco_def = Define `bil_stepstatus_pco s = s.pco`;
-val bil_stepstatus_termcode_def = Define `bil_stepstatus_termcode s = s.termcode`;
+val bil_stepstate_pco_def = Define `bil_stepstate_pco s = s.pco`;
+val bil_stepstate_termcode_def = Define `bil_stepstate_termcode s = s.termcode`;
 
-val bil_exec_step_def = Define `bil_exec_step p status = case status.pco of
-  | NONE => status
+val bil_exec_step_def = Define `bil_exec_step p state = case state.pco of
+  | NONE => state
   | SOME (pc) => if pc.label = (Label "")
-      then status with <| pco := (bil_pcnext p status.pco) ; debug := "Empty block not allowed"::status.debug |>
+      then state with <| pco := (bil_pcnext p state.pco) ; debug := "Empty block not allowed"::state.debug |>
       else case bil_get_program_block_info_by_label p pc.label of
-        | NONE => status with <| pco := NONE ; debug := "Wrong program counter"::status.debug |>
-        | SOME (n, bl) => if (pc.index >= LENGTH bl.statements) \/ ~(status.termcode = Unknown)
-            then status with <| pco := NONE ; debug := "Program terminated"::status.debug |>
+        | NONE => state with <| pco := NONE ; debug := "Wrong program counter"::state.debug |>
+        | SOME (n, bl) => if (pc.index >= LENGTH bl.statements) \/ ~(state.termcode = Unknown)
+            then state with <| pco := NONE ; debug := "Program terminated"::state.debug |>
             else
               let stmt = EL pc.index bl.statements in
-              let newenviron = bil_exec_stmt stmt status.environ in
+              let newenviron = bil_exec_stmt stmt state.environ in
               if ~(is_env_regular newenviron)
               then
-                status with <| pco := NONE ; environ := newenviron ; debug := (CONCAT ["Irregular environment after "; bil_stmt_to_string stmt])::status.debug |>
+                state with <| pco := NONE ; environ := newenviron ; debug := (CONCAT ["Irregular environment after "; bil_stmt_to_string stmt])::state.debug |>
               else
                 case stmt of
-                  | Jmp l        => status with <| pco := SOME (<| label := l ; index := 0 |>) |>
+                  | Jmp l        => state with <| pco := SOME (<| label := l ; index := 0 |>) |>
                   | CJmp e l1 l2 => if (bil_eval_exp e newenviron) = Int 1b
-                                    then status with <| pco := SOME (<| label := l1 ; index := 0 |>) |>
-                                    else status with <| pco := SOME (<| label := l2 ; index := 0 |>) |>
-                  | Declare _    => status with <| pco := (bil_pcnext p status.pco) ; environ := newenviron |>
-                  | Assign _ _   => status with <| pco := (bil_pcnext p status.pco) ; environ := newenviron |>
+                                    then state with <| pco := SOME (<| label := l1 ; index := 0 |>) |>
+                                    else state with <| pco := SOME (<| label := l2 ; index := 0 |>) |>
+                  | Declare _    => state with <| pco := (bil_pcnext p state.pco) ; environ := newenviron |>
+                  | Assign _ _   => state with <| pco := (bil_pcnext p state.pco) ; environ := newenviron |>
                   | Assert e     => if (bil_eval_exp e newenviron) = Int 1b
-                                    then status with <| pco := (bil_pcnext p status.pco) |>
-                                    else status with <| pco := NONE ; termcode := Unknown ; debug := "Assertion failed"::status.debug |>
-                  | Halt e       => status with <| pco := NONE ; termcode := (bil_eval_exp e newenviron) ; debug := "Program halted"::status.debug |>
-                  | _            => status with <| pco := NONE ; environ := newenviron ; termcode := Unknown ; debug := "Unknown statement"::status.debug|>
+                                    then state with <| pco := (bil_pcnext p state.pco) |>
+                                    else state with <| pco := NONE ; termcode := Unknown ; debug := "Assertion failed"::state.debug |>
+                  | Halt e       => state with <| pco := NONE ; termcode := (bil_eval_exp e newenviron) ; debug := "Program halted"::state.debug |>
+                  | _            => state with <| pco := NONE ; environ := newenviron ; termcode := Unknown ; debug := "Unknown statement"::state.debug|>
 `;
 
 val bil_pcinit_def = Define `bil_pcinit (p:program) = let bl = EL 0 p in <| label := bl.label ; index := 0 |>`;
