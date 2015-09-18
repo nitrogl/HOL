@@ -215,6 +215,14 @@ val bil_type_int_inf_def = Define `bil_type_int_inf n = case n of
   | Reg64 _ => Reg Bit64
 `;
 
+val bil_type_val_int_inf_def = Define `bil_type_val_int_inf n = case n of
+  | Int (Reg1  _) => Reg Bit1
+  | Int (Reg8  _) => Reg Bit8
+  | Int (Reg16 _) => Reg Bit16
+  | Int (Reg32 _) => Reg Bit32
+  | Int (Reg64 _) => Reg Bit64
+`;
+
 val bil_regtype_int_inf_def = Define `bil_regtype_int_inf n = case n of
   | Reg1  _ => Bit1
   | Reg8  _ => Bit8
