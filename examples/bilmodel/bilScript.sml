@@ -811,7 +811,7 @@ val bil_eval_exp_def = Define `bil_eval_exp exp (env:environment) = case exp of
         let bigendian = bil_eval_exp e4 env in
         case (mem, address, newval, bigendian) of
             (Mem ta mmap, Int a, Int v, Int be) => (
-              if ((bil_regtype_int_inf a) = ta) /\ ((bil_regtype_int_inf v) = t)
+              if ((bil_regtype_int_inf a) = ta) ∧ ((bil_regtype_int_inf v) = t)
               then
                 case t of
                     Bit1   => Mem ta ((a =+ (if v = 0b then 0c else 1c)) mmap)
@@ -858,7 +858,7 @@ val bil_eval_exp_def = Define `bil_eval_exp exp (env:environment) = case exp of
               else Unknown
               )
           | (Array ta tv mmap, Int a, Int v, _) => (
-              if ((bil_regtype_int_inf a) = ta) /\ ((bil_regtype_int_inf v) = tv)
+              if ((bil_regtype_int_inf a) = ta) ∧ ((bil_regtype_int_inf v) = tv)
               then
                   Array ta tv ((a =+ v) mmap)
                 
@@ -903,7 +903,7 @@ val bil_exec_stmt_def = Define `bil_exec_stmt stmt env = case stmt of
         | (MemByte t, _), Mem ta mmap             => if (t = ta)
                                                       then (v =+ (MemByte t, Mem ta mmap)) env
                                                       else set_env_irregular env
-        | (MemArray ta tv, _), Array tta ttv mmap => if (ta = tta) /\ (tv = ttv)
+        | (MemArray ta tv, _), Array tta ttv mmap => if (ta = tta) ∧ (tv = ttv)
                                                       then (v =+ (MemArray ta tv, Array tta ttv mmap)) env
                                                       else set_env_irregular env
         (* Kind of redeclarations... they seems to be out of BIL semantics *)
@@ -942,7 +942,7 @@ val bil_nextblock_def = Define `bil_nextblock (p:program) (n, (bl:bil_block_t)) 
 `;
 
 val bil_pcnext_def = Define `
-  (bil_pcnext p NONE = NONE) /\
+  (bil_pcnext p NONE = NONE) ∧
   (bil_pcnext p (SOME pc) = case bil_get_program_block_info_by_label p (pc.label) of
         SOME (n, bl) => if (pc.index < LENGTH bl.statements - 1)
           then SOME <| label := pc.label ; index := (pc.index + 1) |>
