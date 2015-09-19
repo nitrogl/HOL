@@ -29,11 +29,12 @@ fun frontlast [] = raise Fail "frontlast: failure"
   | frontlast [h] = ([], h)
   | frontlast (h::t) = let val (f,l) = frontlast t in (h::f, l) end;
 
-fun check_dir nm privs candidate = let
+fun check_dir nm privs [] = NONE
+  | check_dir nm privs (candidate::cs) = let
   open OS.FileSys
   val p = OS.Path.concat(candidate,nm)
 in
-  if access(p, privs) then SOME (OS.Path.dir (fullPath p)) else NONE
+  if access(p, privs) then SOME (OS.Path.dir (fullPath p)) else check_dir nm privs cs
 end
 val check_poly = check_dir "poly" [OS.FileSys.A_EXEC]
 val check_libpoly = check_dir "libpolymain.a" [OS.FileSys.A_READ]
@@ -143,7 +144,7 @@ val poly =
                   val sep = case OS of "winNT" => #";" | _ => #":"
                   val search_these = String.fields (fn c => c = sep) elist
                 in
-                  findpartial check_poly search_these
+                  findpartial check_poly [search_these]
                 end
       in
         case cand of
@@ -154,7 +155,7 @@ val poly =
                     polyinstruction)
         | SOME c => let
           in
-            case check_poly c of
+            case check_poly [c] of
               SOME p => OS.Path.concat(p,"poly")
             | NONE =>
               die ("\n\nI tried to figure out where your poly executable is\
@@ -166,14 +167,14 @@ val poly =
           end
       end
     else
-      case check_poly (OS.Path.dir poly) of
+      case check_poly [OS.Path.dir poly] of
         NONE => die ("\n\nYour overrides file specifies bogus location '"
                      ^poly^
                      "'\nas the location of the poly executable.\n"^
                      polyinstruction)
       | SOME p => OS.Path.concat(p, "poly")
 
-val polylibsister = let
+val polylibsister_suffix = fn suffix => let
   val p as {arcs,isAbs,vol} = OS.Path.fromString poly
   val (dirname, _) = frontlast arcs
   val (parent, probably_bin) = frontlast dirname
@@ -181,8 +182,10 @@ val polylibsister = let
             warn "\nSurprised that poly is not in a \"bin\" directory"
           else ()
 in
-  OS.Path.toString { arcs = parent @ ["lib"], vol = vol, isAbs = isAbs }
+  OS.Path.toString { arcs = parent @ ["lib" ^ suffix], vol = vol, isAbs = isAbs }
 end
+
+val polylibsisters = List.map (fn x => polylibsister_suffix x) [ "", "64" ]
 
 val polylibinstruction =
     "Please write file tools-poly/poly-includes.ML to specify it.\n\
@@ -193,16 +196,16 @@ val polymllibdir =
     if polymllibdir = "" then let
         val _ = determining "polymllibdir"
       in
-        case check_libpoly polylibsister of
+        case check_libpoly polylibsisters of
           SOME c => c
-        | NONE => die ("\n\nLooked in poly's sister lib directory "^
-                       polylibsister ^
+        | NONE => die ("\n\nLooked in poly's sister lib directory/ies "^
+                       (String.concatWith " " polylibsisters) ^
                        "\nand couldn't find libpolymain.a\n" ^
                        polylibinstruction)
 
       end
     else
-      case check_libpoly polymllibdir of
+      case check_libpoly [polymllibdir] of
         SOME c => c
       | NONE => die ("\n\nYour overrides file specifies bogus location '"
                      ^polymllibdir ^
