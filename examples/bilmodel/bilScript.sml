@@ -132,6 +132,22 @@ val b2w_def = Define `b2w t = case t of
   | Reg64 w => w2w w
 `;
 
+val b2n_def = Define `b2n t = case t of
+  | Reg1  w => w2n w
+  | Reg8  w => w2n w
+  | Reg16 w => w2n w
+  | Reg32 w => w2n w
+  | Reg64 w => w2n w
+`;
+
+val b2bool_def = Define `b2bool t = case t of
+  | Reg1  w => w ≠ 0w
+  | Reg8  w => w ≠ 0w
+  | Reg16 w => w ≠ 0w
+  | Reg32 w => w ≠ 0w
+  | Reg64 w => w ≠ 0w
+`;
+
 val w2bs_def = Define `w2bs w (s:num) =
         if (s = 1 ) then Reg1  (w2w w)
   else  if (s = 8 ) then Reg8  (w2w w)
