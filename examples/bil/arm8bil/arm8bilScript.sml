@@ -488,8 +488,8 @@ val bil_a8e2HOLstring = fn t =>
 ;
 
 val bil_a8e2string = fn t =>
-        if (is_reg t) then eval ``r2s ^((snd o dest_comb) t)``
-  else  stringSyntax.fromMLstring (opname t)
+        if (is_reg t) then stringSyntax.fromHOLstring (eval ``r2s ^((snd o dest_comb) t)``)
+  else  opname t
 ;
 
 val bil_a8e_den = fn t => ``(Den ^(bil_a8e2HOLstring t))``;
