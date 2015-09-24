@@ -875,7 +875,7 @@ val DIV_PRODMOD_LT_2EXP = prove(
 
 val DIV_MOD = prove(
     ``∀ (n :num) (j :num). (0 < n) ==> (n * (j DIV n) + j MOD n = j)``
-  , (FULL_SIMP_TAC (arith_ss) [])
+  , (REWRITE_TAC [Once arithmeticTheory.MULT_COMM]) THEN (FULL_SIMP_TAC (arith_ss) [arithmeticTheory.DIVISION])
 );
 
 val MOD_2EXP_EQ = prove(
@@ -883,6 +883,11 @@ val MOD_2EXP_EQ = prove(
   ,       (FULL_SIMP_TAC (arith_ss) [SUC_INC, arithmeticTheory.EXP_ADD, arithmeticTheory.DIV_MOD_MOD_DIV])
     THEN  (REWRITE_TAC [Once ((SIMP_RULE arith_ss [] o SPECL [``2:num``, ``j MOD ((2 :num) * (2 :num) ** n)``] o GSYM) DIV_MOD)])
     THEN  (FULL_SIMP_TAC (arith_ss) [arithmeticTheory.MOD_MULT_MOD])
+);
+
+val MULT_DIV_LE = prove(
+    ``∀ (n:num) (j:num). (0 < n) ==> (n * (j DIV n) <= j)``
+  , (REPEAT STRIP_TAC) THEN (ASSUME_TAC (SPEC_ALL DIV_MOD)) THEN (RW_TAC (arith_ss) [])
 );
 
 (* ------------------------------------------------------------------------- *)
@@ -1038,10 +1043,11 @@ val bil_numeral_expressibility_tm = tryprove(
 
 val bil_numeral_tm = (GEN_ALL o (GEN ``n:num``) o fst o EQ_IMP_RULE o UNDISCH_ALL o SPEC_ALL) bil_numeral_expressibility_tm;
 
+(* useless... ? *)
 val bil_num_tm = tryprove(
     ``∀ env n. (n < dimword (:64)) ==> ((∃ bn. bil_eval_exp (bn) env = Int (n2b_64 n)))``
   , PROVE_TAC [bil_numeral_expressibility_tm]
-); (* useless... ? *)
+);
 
 val bil_plus_lt_2exp64_tm = tryprove(
     ``∀ env n m bn bm. (n < dimword (:64)) ==> ((m < dimword (:64)) ==> ((bil_eval_exp (bn) env = Int (n2b_64 n)) ∧ (bil_eval_exp (bm) env = Int (n2b_64 m)) ==> (bil_eval_exp (
@@ -1265,136 +1271,141 @@ fun extract_operands t =
 
 
 (* Transcompiler arm8 expressions to BIL model expressions *)
-fun tce ae =
+val tc_exp_arm8 = fn ae =>
   let
-    val (o1, o2, o3) = extract_operands ae;
+    fun tce ae =
+      let
+        val (o1, o2, o3) = extract_operands ae;
+      in
+              if (wordsSyntax.is_n2w ae) then (
+                      bil_expr_const ae
+                    , ae
+                    , GEN_ALL (SPECL [``env:environment``, eval ``w2b ^ae``] bil_const_tm)
+                  )
+        else  if  (is_boolean ae) then (
+                      bil_expr_bool ae
+                    , ae
+                    , GEN_ALL (SPECL [``env:environment``, ``bool2b ^ae``] bil_const_tm)
+                  )
+        else  if  (numSyntax.is_numeral ae) then (
+                      bil_expr_num ae
+                    , ae
+                    , GEN_ALL (SPECL [``env:environment``, ae] bil_numeral_tm)
+                  )
+        else  if  (is_reg ae) then (
+                      bil_a8e_den ae
+                    , ae
+                    , (GEN_ENV o GENL [``s:arm8_state``, ``w:word5``] o SPECL [``r2s ^((snd o dest_comb) ae)``, ``Reg Bit64``, ``Int (Reg64 ^ae)``] o SPEC_ENV) arm8_to_bil_den_tm
+                  )
+        else  if  (is_arm8_den ae) then (
+                      bil_a8e_den ae
+                    , ae
+                    , (GEN_ENV o GEN ``s:arm8_state`` o SPECL [
+                          bil_a8e2HOLstring ae
+                        , eval ``bil_type_val_int_inf ^(bil_value ae)``
+                        , ``^(bil_value ae)``
+                      ] o SPEC_ENV) arm8_to_bil_den_tm
+                  )
+        else  if  (is_plus_lt_2exp64 ae)
+          then
+            let
+              val (add1, add2, _) = extract_operands o1;
+              val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_BIN bil_plus_lt_2exp64_tm (tce add1) (tce add2));
+              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+            in
+              (be, ae, mp)
+            end
+        else  if  (is_mod_2exp64 ae)
+          then
+            let
+              val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_UN bil_mod_2exp64_tm (tce o1));
+              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+            in
+              (be, ae, mp)
+            end
+        else  if          (wordsSyntax.is_word_add    ae)
+                  orelse  (wordsSyntax.is_word_sub    ae)
+                  orelse  (wordsSyntax.is_word_mul    ae)
+                  orelse  (wordsSyntax.is_word_div    ae)
+                  orelse  (wordsSyntax.is_word_sdiv   ae)
+                  orelse  (wordsSyntax.is_word_mod    ae)
+                  orelse  (wordsSyntax.is_word_smod   ae)
+                  orelse  (wordsSyntax.is_word_lsl_bv ae)
+                  orelse  (wordsSyntax.is_word_lsr_bv ae)
+                  orelse  (wordsSyntax.is_word_asr_bv ae)
+                  orelse  (wordsSyntax.is_word_and    ae)
+                  orelse  (wordsSyntax.is_word_or     ae)
+                  orelse  (wordsSyntax.is_word_xor    ae)
+                  orelse  (            is_word_eq     ae)
+          then
+            let
+              val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1)) (tce o1) (tce o2));
+              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+            in
+              (be, ae, mp)
+            end
+        else  if          (boolSyntax.is_disj    ae)
+                  orelse  (boolSyntax.is_conj    ae)
+                  orelse  (           is_eq_bool ae)
+          then
+            let
+              val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (select_bil_op_theorem ((fst o strip_comb) ae) 1) (tce o1) (tce o2));
+              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+            in
+              (be, ae, mp)
+            end
+        else  if          (boolSyntax.is_neg ae)
+          then
+            let
+              val mp = (GEN_ALL o DISCH_ALL) (MP_UN (select_bil_op_theorem ((fst o strip_comb) ae) 1) (tce o1));
+              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+            in
+              (be, ae, mp)
+            end
+        else  if          ( numSyntax.is_plus    ae)
+    (*               orelse  ( numSyntax.is_minus   ae) *)
+                  orelse  ( numSyntax.is_mult    ae)
+                  orelse  ( numSyntax.is_div     ae)
+                  orelse  ( numSyntax.is_mod     ae)
+                  orelse  ( numSyntax.is_less    ae)
+                  orelse  ( numSyntax.is_leq     ae)
+                  orelse  ( numSyntax.is_greater ae)
+                  orelse  ( numSyntax.is_geq     ae)
+                  orelse  ( bitSyntax.is_bit     ae)
+                  orelse  (           is_eq_num  ae)
+          then
+            let
+              val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_BIN (select_bil_op_theorem ((fst o strip_comb) ae) 64) (tce o1) (tce o2));
+              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+            in
+              (be, ae, mp)
+            end
+        else  if          (boolSyntax.is_cond     ae)
+          then
+            let
+              val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_ITE (select_bil_op_theorem ((fst o strip_comb) ae) 64) (tce o1) (tce o2) (tce o3))
+              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0)
+            in
+              (be, ae, mp)
+            end
+        else  if          (wordsSyntax.is_word_1comp  ae)
+                  orelse  (wordsSyntax.is_word_2comp  ae)
+                  orelse  (wordsSyntax.is_word_msb    ae)
+                  orelse  (wordsSyntax.is_w2n         ae)
+          then
+            let
+              val mp = (GEN_ALL o DISCH_ALL) (MP_UN (select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1)) (tce o1))
+              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0)
+            in
+              (be, ae, mp)
+            end
+        else  raise UnsupportedARM8ExpressionException ae
+      end;
+    val (be, _, mp) = tce ae;
   in
-          if (wordsSyntax.is_n2w ae) then (
-                  bil_expr_const ae
-                , ae
-                , GEN_ALL (SPECL [``env:environment``, eval ``w2b ^ae``] bil_const_tm)
-              )
-    else  if  (is_boolean ae) then (
-                  bil_expr_bool ae
-                , ae
-                , GEN_ALL (SPECL [``env:environment``, ``bool2b ^ae``] bil_const_tm)
-              )
-    else  if  (numSyntax.is_numeral ae) then (
-                  bil_expr_num ae
-                , ae
-                , GEN_ALL (SPECL [``env:environment``, ae] bil_numeral_tm)
-              )
-    else  if  (is_reg ae) then (
-                  bil_a8e_den ae
-                , ae
-                , (GEN_ENV o GENL [``s:arm8_state``, ``w:word5``] o SPECL [``r2s ^((snd o dest_comb) ae)``, ``Reg Bit64``, ``Int (Reg64 ^ae)``] o SPEC_ENV) arm8_to_bil_den_tm
-              )
-    else  if  (is_arm8_den ae) then (
-                  bil_a8e_den ae
-                , ae
-                , (GEN_ENV o GEN ``s:arm8_state`` o SPECL [
-                      bil_a8e2HOLstring ae
-                    , eval ``bil_type_val_int_inf ^(bil_value ae)``
-                    , ``^(bil_value ae)``
-                  ] o SPEC_ENV) arm8_to_bil_den_tm
-              )
-    else  if  (is_plus_lt_2exp64 ae)
-      then
-        let
-          val (add1, add2, _) = extract_operands o1;
-          val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_BIN bil_plus_lt_2exp64_tm (tce add1) (tce add2));
-          val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
-        in
-          (be, ae, mp)
-        end
-    else  if  (is_mod_2exp64 ae)
-      then
-        let
-          val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_UN bilmod_2exp64_tm (tce o1));
-          val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
-        in
-          (be, ae, mp)
-        end
-    else  if          (wordsSyntax.is_word_add    ae)
-              orelse  (wordsSyntax.is_word_sub    ae)
-              orelse  (wordsSyntax.is_word_mul    ae)
-              orelse  (wordsSyntax.is_word_div    ae)
-              orelse  (wordsSyntax.is_word_sdiv   ae)
-              orelse  (wordsSyntax.is_word_mod    ae)
-              orelse  (wordsSyntax.is_word_smod   ae)
-              orelse  (wordsSyntax.is_word_lsl_bv ae)
-              orelse  (wordsSyntax.is_word_lsr_bv ae)
-              orelse  (wordsSyntax.is_word_asr_bv ae)
-              orelse  (wordsSyntax.is_word_and    ae)
-              orelse  (wordsSyntax.is_word_or     ae)
-              orelse  (wordsSyntax.is_word_xor    ae)
-              orelse  (            is_word_eq     ae)
-      then
-        let
-          val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1)) (tce o1) (tce o2));
-          val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
-        in
-          (be, ae, mp)
-        end
-    else  if          (boolSyntax.is_disj    ae)
-              orelse  (boolSyntax.is_conj    ae)
-              orelse  (           is_eq_bool ae)
-      then
-        let
-          val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (select_bil_op_theorem ((fst o strip_comb) ae) 1) (tce o1) (tce o2));
-          val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
-        in
-          (be, ae, mp)
-        end
-    else  if          (boolSyntax.is_neg ae)
-      then
-        let
-          val mp = (GEN_ALL o DISCH_ALL) (MP_UN (select_bil_op_theorem ((fst o strip_comb) ae) 1) (tce o1));
-          val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
-        in
-          (be, ae, mp)
-        end
-    else  if          ( numSyntax.is_plus    ae)
-(*               orelse  ( numSyntax.is_minus   ae) *)
-              orelse  ( numSyntax.is_mult    ae)
-              orelse  ( numSyntax.is_div     ae)
-              orelse  ( numSyntax.is_mod     ae)
-              orelse  ( numSyntax.is_less    ae)
-              orelse  ( numSyntax.is_leq     ae)
-              orelse  ( numSyntax.is_greater ae)
-              orelse  ( numSyntax.is_geq     ae)
-              orelse  ( bitSyntax.is_bit     ae)
-              orelse  (           is_eq_num  ae)
-      then
-        let
-          val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_BIN (select_bil_op_theorem ((fst o strip_comb) ae) 64) (tce o1) (tce o2));
-          val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
-        in
-          (be, ae, mp)
-        end
-    else  if          (boolSyntax.is_cond     ae)
-      then
-        let
-          val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_ITE (select_bil_op_theorem ((fst o strip_comb) ae) 64) (tce o1) (tce o2) (tce o3))
-          val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0)
-        in
-          (be, ae, mp)
-        end
-    else  if          (wordsSyntax.is_word_1comp  ae)
-              orelse  (wordsSyntax.is_word_2comp  ae)
-              orelse  (wordsSyntax.is_word_msb    ae)
-              orelse  (wordsSyntax.is_w2n         ae)
-      then
-        let
-          val mp = (GEN_ALL o DISCH_ALL) (MP_UN (select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1)) (tce o1))
-          val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0)
-        in
-          (be, ae, mp)
-        end
-    else  raise UnsupportedARM8ExpressionException ae
+    (be, ae, (GENL [``env:environment``, ``s:arm8_state``] o SIMP_RULE (arith_ss) [] o SPEC_ALL) mp)
   end
 ;
-val tc_exp_arm8 = tce;
 
 (* ------------------------------------------------------------------------- *)
 (*                                                                           *)
