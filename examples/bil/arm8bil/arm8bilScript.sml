@@ -191,9 +191,8 @@ val dupe_theorem = prove(``F ==> T``, EVAL_TAC);
 fun dupe_prove t =
   let
     val tac =       EVAL_TAC
-              THEN  (RW_TAC (pure_ss) []) THEN (RW_TAC (arith_ss) []) THEN (RW_TAC (srw_ss()) [])
-              THEN  (SIMP_TAC (bool_ss) []) THEN (SIMP_TAC (arith_ss) []) THEN (SIMP_TAC (srw_ss()) [])
-              THEN  (FULL_SIMP_TAC (arith_ss) []) THEN (FULL_SIMP_TAC (srw_ss()) []);
+              THEN  (RW_TAC (srw_ss()++ARITH_ss) [])
+              THEN  (FULL_SIMP_TAC (srw_ss()++ARITH_ss) []);
     val goal = ([], t);
     fun dp (goal, tac) =
       case tac goal of
@@ -482,16 +481,22 @@ val bil_expr_num = fn t =>
 
 val r2s_def = Define `r2s = λ(w:bool[5]).STRCAT ("R") (w2s (10:num) HEX w)`;
 
-val bil_a8e2HOLstring = fn t =>
-        if (is_reg t) then ``r2s ^((snd o dest_comb) t)``
-  else  stringSyntax.fromMLstring (opname t)
+fun bil_a8e2HOLstring_prefix t prefix =
+        if (is_reg t) then
+          if (prefix = "")
+            then  ``r2s ^((snd o dest_comb) t)``
+            else  ``APPEND ^(stringSyntax.fromMLstring prefix) (r2s ^((snd o dest_comb) t))``
+  else  stringSyntax.fromMLstring (prefix ^ (opname t))
 ;
+
+val bil_a8e2HOLstring = fn t => bil_a8e2HOLstring_prefix t "";
 
 val bil_a8e2string = fn t =>
         if (is_reg t) then stringSyntax.fromHOLstring (eval ``r2s ^((snd o dest_comb) t)``)
   else  opname t
 ;
 
+fun bil_a8e_den_prefix t prefix = ``(Den ^(bil_a8e2HOLstring_prefix t prefix))``;
 val bil_a8e_den = fn t => ``(Den ^(bil_a8e2HOLstring t))``;
 
 (* ------------------------------------------------------------------------- *)
@@ -1271,7 +1276,7 @@ fun extract_operands t =
 
 
 (* Transcompiler arm8 expressions to BIL model expressions *)
-val tc_exp_arm8 = fn ae =>
+fun tc_exp_arm8_prefix ae prefix =
   let
     fun tce ae =
       let
@@ -1293,15 +1298,15 @@ val tc_exp_arm8 = fn ae =>
                     , GEN_ALL (SPECL [``env:environment``, ae] bil_numeral_tm)
                   )
         else  if  (is_reg ae) then (
-                      bil_a8e_den ae
+                      bil_a8e_den_prefix ae prefix
                     , ae
-                    , (GEN_ENV o GENL [``s:arm8_state``, ``w:word5``] o SPECL [``r2s ^((snd o dest_comb) ae)``, ``Reg Bit64``, ``Int (Reg64 ^ae)``] o SPEC_ENV) arm8_to_bil_den_tm
+                    , (GEN_ENV o GENL [``s:arm8_state``, ``w:word5``] o SPECL [if (prefix = "") then ``r2s ^((snd o dest_comb) ae)`` else ``APPEND ^(stringSyntax.fromMLstring prefix) (r2s ^((snd o dest_comb) ae))``, ``Reg Bit64``, ``Int (Reg64 ^ae)``] o SPEC_ENV) arm8_to_bil_den_tm
                   )
         else  if  (is_arm8_den ae) then (
-                      bil_a8e_den ae
+                      bil_a8e_den_prefix ae prefix
                     , ae
                     , (GEN_ENV o GEN ``s:arm8_state`` o SPECL [
-                          bil_a8e2HOLstring ae
+                          bil_a8e2HOLstring_prefix ae prefix
                         , eval ``bil_type_val_int_inf ^(bil_value ae)``
                         , ``^(bil_value ae)``
                       ] o SPEC_ENV) arm8_to_bil_den_tm
@@ -1403,9 +1408,10 @@ val tc_exp_arm8 = fn ae =>
       end;
     val (be, _, mp) = tce ae;
   in
-    (be, ae, (GENL [``env:environment``, ``s:arm8_state``] o SIMP_RULE (arith_ss) [] o SPEC_ALL) mp)
+    (be, ae, (GEN_ALL o GENL [``env:environment``, ``s:arm8_state``] o DISCH_ALL_REV o DISPOSE_HYP) mp)
   end
 ;
+val tc_exp_arm8 = fn ae => tc_exp_arm8_prefix ae "";
 
 (* ------------------------------------------------------------------------- *)
 (*                                                                           *)
