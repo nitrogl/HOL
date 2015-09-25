@@ -457,14 +457,12 @@ val bil_expr_const = fn t =>
   let
     val s = word_size t
   in
-    case s of
-        0  => ``(Const (Reg64 (w2w ^t)))`` (* Encapsulate a generic α word to maximum size (worst choice?) *)
-      | 1  => ``(Const (Reg1  ^t))``
-      | 8  => ``(Const (Reg8  ^t))``
-      | 16 => ``(Const (Reg16 ^t))``
-      | 32 => ``(Const (Reg32 ^t))``
-      | 64 => ``(Const (Reg64 ^t))``
-      | _  => raise UnsupportedWordSizeException
+          if (s  = 1 ) then ``(Const (Reg1  ^t))``
+    else  if (s <= 8 ) then ``(Const (Reg8  ^t))``
+    else  if (s <= 16) then ``(Const (Reg16 ^t))``
+    else  if (s <= 32) then ``(Const (Reg32 ^t))``
+    else  if (s <= 64) then ``(Const (Reg64 ^t))``
+    else  ``(Const (Reg64 (w2w ^t)))`` (* Encapsulate a generic α word to maximum size (worst choice?) *)
   end
 ;
 
