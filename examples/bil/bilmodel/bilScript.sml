@@ -163,7 +163,7 @@ val w2b_def = Define `w2b w =
   else  if (word_len w <= 16) then w2bs w 16
   else  if (word_len w <= 32) then w2bs w 32
   else  if (word_len w <= 64) then w2bs w 64
-  else  w2bs (1w + w) 1 (* to ensure that w2b large w is different from w2bs w *)
+  else  w2bs w 0
 `;
 
 val n2bs_def = Define `n2bs n (s:num) =
@@ -181,7 +181,7 @@ val n2b_def = Define `n2b n =
   else  if (n < 2**16) then n2bs n 16
   else  if (n < 2**32) then n2bs n 32
   else  if (n < 2**64) then n2bs n 64
-  else  n2bs (n + 1) 1 (* to ensure that n2b large n is different from n2bs n *)
+  else  n2bs n 0
 `;
 
 val bool2b_def = Define `bool2b b = if b then Reg1 1w else Reg1 0w`;
@@ -191,6 +191,9 @@ val n2b_8_def  = Define `n2b_8  n = n2bs n 8`;
 val n2b_16_def = Define `n2b_16 n = n2bs n 16`;
 val n2b_32_def = Define `n2b_32 n = n2bs n 32`;
 val n2b_64_def = Define `n2b_64 n = n2bs n 64`;
+
+(* This definition is oriented to give an RX name to registers *)
+val r2s_def = Define `r2s = λ(w:bool[5]).STRCAT ("R") (w2s (10:num) HEX w)`;
 
 val _ = add_bare_numeral_form (#"x", SOME "n2b_64");
 val _ = add_bare_numeral_form (#"e", SOME "n2b_32");
@@ -898,10 +901,10 @@ val bil_eval_exp_def = Define `bil_eval_exp exp (env:environment) = case exp of
 (* Execution of Jmp, CJmp, Halt, Assert doesn't change environment *)
 val bil_exec_stmt_def = Define `bil_exec_stmt stmt env = case stmt of
   | Declare (Var s t) => (
-      case t of
-          Reg _          => (s =+ (t, Unknown)) env
-        | MemByte ta     => (s =+ (t, Mem ta ((λx.(Reg8 0w)):bil_int_t -> bil_int_t))) env
-        | MemArray ta tv => (
+      case env s, t of
+          (NoType, Unknown), Reg _          => (s =+ (t, Unknown)) env
+        | (NoType, Unknown), MemByte ta     => (s =+ (t, Mem ta ((λx.(Reg8 0w)):bil_int_t -> bil_int_t))) env
+        | (NoType, Unknown), MemArray ta tv => (
             case tv of
                 Bit1  => (s =+ (t, Array ta tv ((λx.(Reg1  0w)):bil_int_t -> bil_int_t))) env
               | Bit8  => (s =+ (t, Array ta tv ((λx.(Reg8  0w)):bil_int_t -> bil_int_t))) env
@@ -909,6 +912,7 @@ val bil_exec_stmt_def = Define `bil_exec_stmt stmt env = case stmt of
               | Bit32 => (s =+ (t, Array ta tv ((λx.(Reg32 0w)):bil_int_t -> bil_int_t))) env
               | Bit64 => (s =+ (t, Array ta tv ((λx.(Reg64 0w)):bil_int_t -> bil_int_t))) env
             )
+        | _ => env
       )
   | Assign v e => (
       case env v, bil_eval_exp e env of
@@ -995,7 +999,7 @@ val bil_exec_step_def = Define `bil_exec_step p state = case state.pco of
               let newenviron = bil_exec_stmt stmt state.environ in
               if ~(is_env_regular newenviron)
               then
-                state with <| pco := NONE ; environ := newenviron ; debug := (CONCAT ["Irregular environment after "; bil_stmt_to_string stmt])::state.debug |>
+                state with <| pco := NONE ; debug := (CONCAT ["Irregular environment after "; bil_stmt_to_string stmt])::state.debug |>
               else
                 case stmt of
                   | Jmp l        => state with <| pco := SOME (<| label := l ; index := 0 |>) |>
@@ -1018,13 +1022,23 @@ val bil_exec_step_n_def = Define `bil_exec_step_n p state (n:num) =
     else bil_exec_step_n p (bil_exec_step p state) (n - 1)
 `;
 
+(* Statements' counting and irregular program *)
+val bil_block_stmts_count_def = Define `bil_block_stmts_count bl = LENGTH bl.statements`;
+val bil_program_stmts_count_def = Define`bil_program_stmts_count p = SUM (MAP bil_block_stmts_count p)`;
+val bil_program_lbl_unique_def = Define`bil_program_lbl_unique (p:program) = ALL_DISTINCT (MAP (λbl.(bl.label)) p)`;
+val bil_program_no_empty_blocks_def = Define`bil_program_no_empty_blocks p = (FIND ($= 0) (FILTER (λl.l = 0) (MAP bil_block_stmts_count p)) = NONE)`;
+val bil_program_irregular_def = Define `bil_program_irregular p = ~(bil_program_lbl_unique p ∧ bil_program_no_empty_blocks p)`;
+
 val bil_pcinit_def = Define `bil_pcinit (p:program) = let bl = EL 0 p in <| label := bl.label ; index := 0 |>`;
 val bil_stateinit_def = Define `bil_stateinit (p:program) = <|
   pco      := SOME (bil_pcinit p) ;
   environ  := (λx.(NoType, Unknown)):environment ;
   termcode := Unknown ;
-  debug    := []
+  debug    := if (bil_program_irregular p)
+                then ["Irregular program detected (duplicate labels or empty statements)"]
+                else []
 |>`;
+
 
 (* ------------------------------------------------------------------------- *)
 (*  Theorems - not yet completed                                             *)
