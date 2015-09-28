@@ -148,7 +148,7 @@ fun DISCH_ALL_REV th = HOLset.foldr (Lib.uncurry DISCH) th (hypset th);
 
 (*---------------------------------------------------------------------------*
  *  Convert a conjunctive implication antecedent to a cascade of             *
- *  implications.                                                             *
+ *  implications.                                                            *
  *                                                                           *
  *       |- t1 /\ t2 /\ ... /\ tn => t                                       *
  *  -----------------------------------------------                          *
@@ -278,8 +278,21 @@ val word_type_size = fn t =>
 val get_alphatype = fn ty =>
   if (wordsSyntax.is_word_type ty)
     then List.nth (snd(dest_type ty), 1)
-    else raise NotAWordException;
+    else raise NotAWordException
+;
 
+val word_length = fn t =>
+  if (wordsSyntax.is_word_type (type_of t))
+    then
+      let
+        val l = eval ``word_len ^t``;
+      in
+        if (numSyntax.is_numeral l)
+          then  numSyntax.int_of_term l
+          else  raise UnsupportedWordSizeException
+      end
+    else raise NotAWordException
+;
 
 (* ------------------------------------------------------------------------- *)
 (*  Expression tests                                                         *)
@@ -453,22 +466,30 @@ val bil_expr_const_bool = fn t =>
   if  t then ``(Const (Reg1 1w))``
         else ``(Const (Reg1 0w))``;
 
-val bil_expr_const = fn t =>
-  let
-    val s = word_size t
-  in
-          if (s  = 1 ) then ``(Const (Reg1  ^t))``
-    else  if (s <= 8 ) then ``(Const (Reg8  ^t))``
-    else  if (s <= 16) then ``(Const (Reg16 ^t))``
-    else  if (s <= 32) then ``(Const (Reg32 ^t))``
-    else  if (s <= 64) then ``(Const (Reg64 ^t))``
-    else  ``(Const (Reg64 (w2w ^t)))`` (* Encapsulate a generic α word to maximum size (worst choice?) *)
-  end
-;
-
 val bil_expr_bool = fn t =>
         if (t = ``T`` orelse t = ``F``) then ``Const (bool2b ^t)``
   else  raise NotABoolException
+;
+
+val bil_expr_const = fn t =>
+        if  (is_boolean t) then bil_expr_const_bool (t = ``T``)
+  else  if  (is_bool    t) then ``Const (bool2b ^t)``
+  else
+    let
+      val s = word_length t;
+    in
+            if (s  = 1 ) then ``(Const (Reg1  ^t))``
+      else  if (s  = 8 ) then ``(Const (Reg8  ^t))``
+      else  if (s  = 16) then ``(Const (Reg16 ^t))``
+      else  if (s  = 32) then ``(Const (Reg32 ^t))``
+      else  if (s  = 64) then ``(Const (Reg64 ^t))``
+      else  if (s <= 8 ) then ``(Const (Reg8  (w2w ^t)))``
+      else  if (s <= 16) then ``(Const (Reg16 (w2w ^t)))``
+      else  if (s <= 32) then ``(Const (Reg32 (w2w ^t)))``
+      else  if (s <= 64) then ``(Const (Reg64 (w2w ^t)))``
+
+      else  ``(Const (Reg64 (w2w ^t)))`` (* Encapsulate a generic α word to maximum size (worst choice?) *)
+    end
 ;
 
 val bil_expr_num = fn t =>
@@ -476,8 +497,6 @@ val bil_expr_num = fn t =>
     then ``Cast (Const (n2b ^t)) Bit64``
     else raise NotANumberException
 ;
-
-val r2s_def = Define `r2s = λ(w:bool[5]).STRCAT ("R") (w2s (10:num) HEX w)`;
 
 fun bil_a8e2HOLstring_prefix t prefix =
         if (is_reg t) then
@@ -1040,7 +1059,7 @@ val bil_boolean_tm = tryprove(
 );
 
 val bil_numeral_expressibility_tm = tryprove(
-    ``∀ env n. (n < dimword (:64)) = (bil_eval_exp (Cast (Const (n2b n)) Bit64) env = Int (n2b_64 n))``
+    ``∀ env n. (n < dimword (:64)) = (bil_eval_exp (Cast (Const (n2b_64 n)) Bit64) env = Int (n2b_64 n))``
   , BIL_NUMERAL_TAC
 );
 
