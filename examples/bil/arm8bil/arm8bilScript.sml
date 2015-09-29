@@ -972,7 +972,7 @@ val BIL_LSB_TAC =
     THEN  BIL_OP_FULL_SIMP_TAC
     THEN  (SIMP_TAC (srw_ss()) [Ntimes bil_eval_exp_def 2])
     THEN  EVAL_TAC
-    THEN  (FULL_SIMP_TAC (srw_ss()++WORD_BIT_EQ_ss) [wordsTheory.WORD_BIT_BITS])
+    THEN  (FULL_SIMP_TAC (srw_ss()++WORD_BIT_EQ_ss) [])
   )
 ;
 val BIL_OP_BIT_TAC = (
