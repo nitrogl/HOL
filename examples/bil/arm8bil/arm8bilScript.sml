@@ -1413,6 +1413,7 @@ fun tc_exp_arm8_prefix ae prefix =
         else  if          (wordsSyntax.is_word_1comp  ae)
                   orelse  (wordsSyntax.is_word_2comp  ae)
                   orelse  (wordsSyntax.is_word_msb    ae)
+                  orelse  (wordsSyntax.is_word_lsb    ae)
                   orelse  (wordsSyntax.is_w2n         ae)
           then
             let
