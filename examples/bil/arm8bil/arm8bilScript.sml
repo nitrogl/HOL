@@ -494,7 +494,7 @@ val bil_expr_const = fn t =>
 
 val bil_expr_num = fn t =>
   if (numSyntax.is_numeral t)
-    then ``Cast (Const (n2b ^t)) Bit64``
+    then ``Cast (Const (n2b_64 ^t)) Bit64``
     else raise NotANumberException
 ;
 
