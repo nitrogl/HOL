@@ -405,7 +405,6 @@ val arm8_supported_den = fn a8s => [
   ``, ``^(a8s).PSTATE.SPS
   ``, ``^(a8s).PSTATE.V
   ``, ``^(a8s).PSTATE.Z
-  ``, ``^(a8s).PSTATE.Z
       
   ``(*, ``^(a8s).SP_EL0
   ``, ``^(a8s).SP_EL1
