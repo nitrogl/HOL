@@ -62,6 +62,9 @@ exception ProveException of term * string;
 (* ------------------------------------------------------------------------- *)
 fun eval t = (snd o dest_eq o concl o EVAL) t;
 fun opname t = (fst o dest_const o fst o strip_comb) t;
+val fst3 = fn (t, _, _) => t;
+val snd3 = fn (_, t, _) => t;
+val trd3 = fn (_, _, t) => t;
 fun REPEATN (n, tac) = EVERY (List.tabulate (n, fn n => tac));
 val EVALBOOL = (EQT_ELIM o EVAL);
 fun MP_NOFAIL th1 th2 = MP th1 th2 handle e => th1;
@@ -112,6 +115,11 @@ fun MP_BIN     thImp (be1, ae1, thm1) (be2, ae2, thm2) =
 fun MP_NUM_BIN thImp (be1, ae1, thm1) (be2, ae2, thm2) =
   MP_CONJ ((UNDISCH o UNDISCH o (SPECL [ae1, ae2, be1, be2]) o SPEC_ENV) thImp) ((UNDISCH_ALL o SPEC_ALL) thm1, (UNDISCH_ALL o SPEC_ALL) thm2)
 ;
+
+fun MP_ITE thImp (be1, ae1, thm1) (be2, ae2, thm2) (be3, ae3, thm3) = 
+  MP_CONJL (((SPECL [ae1, ae2, ae3, be1, be2, be3]) o SPEC_ENV) thImp) (List.rev [(UNDISCH_ALL o SPEC_ALL) thm1, (UNDISCH_ALL o SPEC_ALL) thm2, (UNDISCH_ALL o SPEC_ALL) thm3])
+;
+
 
 fun MP_NUM_ITE thImp (be1, ae1, thm1) (be2, ae2, thm2) (be3, ae3, thm3) = 
   MP_CONJL ((UNDISCH o UNDISCH o (SPECL [ae1, ae2, ae3, be1, be2, be3]) o SPEC_ENV) thImp) (List.rev [(UNDISCH_ALL o SPEC_ALL) thm1, (UNDISCH_ALL o SPEC_ALL) thm2, (UNDISCH_ALL o SPEC_ALL) thm3])
@@ -319,6 +327,8 @@ val is_mem  = fn t => is_arm8_app t ``s.MEM``;
 val is_boolean  = fn t => (t = ``T``) orelse (t = ``F``);
 val is_eq_bool = fn t => (is_comb t) andalso (boolSyntax.is_eq t) andalso (List.nth ((snd o dest_type o type_of o fst o strip_comb) t, 0)) = ``:bool``;
 val is_eq_num  = fn t => (is_comb t) andalso (boolSyntax.is_eq t) andalso (List.nth ((snd o dest_type o type_of o fst o strip_comb) t, 0)) = ``:num``;
+val is_cond_num  = fn t => (is_cond t) andalso ((is_num  o trd3 o dest_cond) t);
+val is_cond_bool = fn t => (is_cond t) andalso ((is_bool o trd3 o dest_cond) t);
 
 val is_neq = fn t => if (boolSyntax.is_neg t)
   then
@@ -1426,10 +1436,26 @@ fun tc_exp_arm8_prefix ae prefix =
             in
               (be, ae, mp)
             end
-        else  if          (boolSyntax.is_cond     ae)
+        else  if          (is_cond_num     ae)
           then
             let
               val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_ITE (select_bil_op_theorem ((fst o strip_comb) ae) 64) (tce o1) (tce o2) (tce o3));
+              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+            in
+              (be, ae, mp)
+            end
+        else  if          (is_cond_bool    ae)
+          then
+            let
+              val mp = (GEN_ALL o DISCH_ALL) (MP_ITE (select_bil_op_theorem ((fst o strip_comb) ae) 1) (tce o1) (tce o2) (tce o3));
+              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+            in
+              (be, ae, mp)
+            end
+        else  if          (boolSyntax.is_cond     ae)
+          then
+            let
+              val mp = (GEN_ALL o DISCH_ALL) (MP_ITE (select_bil_op_theorem ((fst o strip_comb) ae) (word_size o2)) (tce o1) (tce o2) (tce o3));
               val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
             in
               (be, ae, mp)
