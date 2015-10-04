@@ -1102,7 +1102,7 @@ fun nw n s = wordsSyntax.mk_wordii(n, s);
 (* Generic theorems for binary expressions *)
 val bil_op_tms =
   let
-    val bopPairs = [
+    val bopTuples = [
           (fn s => (fst o strip_comb) ``word_add    ^(nw 0 s)``, fn s => ``Plus              bx by``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``word_sub    ^(nw 0 s)``, fn s => ``Minus             bx by``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``word_mul    ^(nw 0 s)``, fn s => ``Mult              bx by``, BIL_OP_TAC)
@@ -1123,7 +1123,7 @@ val bil_op_tms =
         , (fn s => (fst o strip_comb) ``word_ls     ^(nw 0 s)``, fn s => ``LessOrEqual       bx by``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``word_lo     ^(nw 0 s)``, fn s => ``LessThan          bx by``, BIL_OP_TAC)
       ];
-    val uopPairs = [
+    val uopTuples = [
           (fn s => (fst o strip_comb) ``word_2comp  ^(nw 0 s)``, fn s => ``ChangeSign        bx``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``word_1comp  ^(nw 0 s)``, fn s => ``Not               bx``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``w2n         ^(nw 0 s)``, fn s => ``Cast              bx Bit64``, BIL_OP_TAC)
@@ -1132,16 +1132,16 @@ val bil_op_tms =
         , (fn s => (fst o strip_comb) ``word_msb    ^(nw 0 s)``, fn s => ``SignedLessThan bx ^(bil_expr_const (nw 0 s))``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``word_lsb    ^(nw 0 s)``, fn s => ``Equal (And bx ^(bil_expr_const (nw 1 s))) ^(bil_expr_const (nw 1 s))``, BIL_LSB_TAC)
       ];
-    val bopPairsBool = [
+    val bopTuplesBool = [
           (fn s => (fst o strip_comb) ``T ∧ T``, fn s => ``And    bx by``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``T ∨ T``, fn s => ``Or     bx by``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``T = T``, fn s => ``Equal  bx by``, BIL_OP_TAC)
       ];
-    val uopPairsBool = [
+    val uopTuplesBool = [
           (fn s => (fst o strip_comb) ``~T``, fn s => ``Not bx``, BIL_OP_TAC)
 (*         , (fn s => (fst o strip_comb) ``¬T``, fn s => ````, BIL_OP_TAC) *)
       ];
-    val bopPairsNum = [
+    val bopTuplesNum = [
           (fn s => (fst o strip_comb) ``(n:num)   + m``, fn s => ``Plus      bn bm``, BIL_OP_TAC)
 (*         , (fn s => (fst o strip_comb) ``(n:num)   - m``, fn s => ``IfThenElse (SignedLessThan bn bm) (Const 0x) (Minus bn bm)``, BIL_OP_TAC) *)
         , (fn s => (fst o strip_comb) ``(n:num)   * m``, fn s => ``Mult         bn bm``, BIL_OP_TAC)
@@ -1154,21 +1154,27 @@ val bil_op_tms =
         , (fn s => (fst o strip_comb) ``(n:num)  >= m``, fn s => ``LessOrEqual  bm bn``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``BIT (n:num) m``, fn s => ``Equal (Mod (RightShift bm bn) ^(bil_expr_const (nw 2 s))) ^(bil_expr_const (nw 1 s))``, BIL_OP_BIT_TAC)
       ];
-    val uopPairsNum = [
+    val uopTuplesNum = [
       ];
-    val ifthenelseNum = [
+    val iteTuple = [
+        (fn s => (fst o strip_comb) ``if (c:bool) then ^(nw 0 s) else x``, fn s => ``IfThenElse bc bx by``, BIL_OP_TAC)
+      ];
+    val iteTupleBool = [
+        (fn s => (fst o strip_comb) ``if (c:bool) then T else x``, fn s => ``IfThenElse bc bx by``, BIL_OP_TAC)
+      ];
+    val iteTupleNum = [
           (fn s => (fst o strip_comb) ``if (c:bool) then (n:num) else (m:num)``, fn s => ``IfThenElse bc bn bm``, BIL_OP_TAC)
       ];
     
     (* cartesian product *)
-    fun prod bints opPairs =
+    fun prod bints opTuples =
       let
         fun prod' lst1 lst2 res =
           case lst1 of
               []          => res
             | (br, s)::l1 => prod' l1 lst2 (List.concat [map (fn (f, b, tac) => (f s, b s, tac, br)) lst2, res])
       in
-        prod' bints opPairs []
+        prod' bints opTuples []
       end;
       
     val goalgenerator_uop = fn (auop, bexp, tac, br) =>
@@ -1227,14 +1233,32 @@ val bil_op_tms =
                             ))``
         )
       end;
-    val goalgenerator_ite_num = fn (abop, bexp, tac, _) =>
+    val goalgenerator_ite = fn (ite, bexp, tac, br) =>
       let
-        val aexp = ``(^abop c n m)``;
+        val abopValue = bil_value ``(^ite c x y)``
+      in
+        (
+            ite, bexp, tac, br
+          , ``∀ env c x y bc bx by. (bil_eval_exp bc env = Int (bool2b c)) ∧ (bil_eval_exp bx env = Int (^br x)) ∧ (bil_eval_exp by env = Int (^br y)) ==> (bil_eval_exp ^bexp env = ^abopValue)``
+        )
+      end;
+    val goalgenerator_ite_bool = fn (ite, bexp, tac, _) =>
+      let
+        val abopValue = bil_value ``(^ite c x y)``
+      in
+        (
+            ite, bexp, tac, ``Reg1``
+          , ``∀ env c x y bc bx by. (bil_eval_exp bc env = Int (bool2b c)) ∧ (bil_eval_exp bx env = Int (bool2b x)) ∧ (bil_eval_exp by env = Int (bool2b y)) ==> (bil_eval_exp ^bexp env = ^abopValue)``
+        )
+      end;
+    val goalgenerator_ite_num = fn (ite, bexp, tac, _) =>
+      let
+        val aexp = ``(^ite c n m)``;
         val abopValue = bil_value aexp;
         val concl = ``(bil_eval_exp ^bexp env = ^abopValue)``;
       in
         (
-            abop, bexp, tac, ``Reg64``
+            ite, bexp, tac, ``Reg64``
           , ``∀ env c n m bc bn bm. (n < dimword(:64))
                                 ==> ((m < dimword(:64))
                                 ==> ((bil_eval_exp bc env = Int (bool2b c)) ∧ (bil_eval_exp bn env = Int (n2b_64 n)) ∧ (bil_eval_exp bm env = Int (n2b_64 m))
@@ -1244,12 +1268,14 @@ val bil_op_tms =
       end;
       
     val goals = List.concat [
-          map goalgenerator_bop      (prod constructor_size_pairs bopPairs)
-        , map goalgenerator_uop      (prod constructor_size_pairs uopPairs)
-        , map goalgenerator_bop_bool (prod (List.filter (fn (_, n) => n = 1) constructor_size_pairs) bopPairsBool)
-        , map goalgenerator_uop_bool (prod (List.filter (fn (_, n) => n = 1) constructor_size_pairs) uopPairsBool)
-        , map goalgenerator_bop_num  (prod (List.filter (fn (_, n) => n = 64) constructor_size_pairs) bopPairsNum)
-        , map goalgenerator_ite_num  (prod (List.filter (fn (_, n) => n = 64) constructor_size_pairs) ifthenelseNum)
+          map goalgenerator_bop       (prod constructor_size_pairs bopTuples)
+        , map goalgenerator_uop       (prod constructor_size_pairs uopTuples)
+        , map goalgenerator_bop_bool  (prod (List.filter (fn (_, n) => n = 1) constructor_size_pairs) bopTuplesBool)
+        , map goalgenerator_uop_bool  (prod (List.filter (fn (_, n) => n = 1) constructor_size_pairs) uopTuplesBool)
+        , map goalgenerator_bop_num   (prod (List.filter (fn (_, n) => n = 64) constructor_size_pairs) bopTuplesNum)
+        , map goalgenerator_ite_num   (prod (List.filter (fn (_, n) => n = 64) constructor_size_pairs) iteTupleNum)
+        , map goalgenerator_ite_bool  (prod (List.filter (fn (_, n) => n = 1) constructor_size_pairs) iteTupleBool)
+        , map goalgenerator_ite       (prod constructor_size_pairs iteTuple)
       ];
   in
     (* And now batch proofs... *)
@@ -1403,8 +1429,8 @@ fun tc_exp_arm8_prefix ae prefix =
         else  if          (boolSyntax.is_cond     ae)
           then
             let
-              val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_ITE (select_bil_op_theorem ((fst o strip_comb) ae) 64) (tce o1) (tce o2) (tce o3))
-              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0)
+              val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_ITE (select_bil_op_theorem ((fst o strip_comb) ae) 64) (tce o1) (tce o2) (tce o3));
+              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
             in
               (be, ae, mp)
             end
