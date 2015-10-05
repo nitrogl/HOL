@@ -211,16 +211,14 @@ val _ = type_abbrev("environment", ``:string -> (bil_type_t # bil_val_t)``);
 val env0_def = Define `env0 = (λx.(NoType, Unknown)):environment`;
 
 (* Error environment. env epsilon != (NoType,Unknown) *)
-val is_env_regular_dev = Define `is_env_regular env = ((env "") = (NoType, Unknown))`;
+val is_env_regular_def = Define `is_env_regular env = ((env "") = (NoType, Unknown))`;
 val set_env_irregular_def = Define `set_env_irregular env = ("" =+ (NoType, Int 0b)) env`;
 
 (* Get the type of a variable from environment *)
-val search_fst_def = Define `search_fst key f = let (vfst, vsnd) = f key in vfst`;
-val bil_env_read_type_def = Define `bil_env_read_type var (env:environment) = search_fst var env`;
+val bil_env_read_type_def = Define `bil_env_read_type var (env:environment) = FST (env var)`;
 
 (* Get value of a variable from environment *)
-val search_snd_def = Define `search_snd key f = let (vfst, vsnd) = f key in vsnd`;
-val bil_env_read_def = Define `bil_env_read var (env:environment) = search_snd var env`;
+val bil_env_read_def = Define `bil_env_read var (env:environment) = SND (env var)`;
 
 (* ------------------------------------------------------------------------- *)
 (*  Type inference and sizes                                                 *)
@@ -981,38 +979,37 @@ Datatype `stepstate = <|
   pco:programcounter option ;
   environ:environment ;
   termcode:bil_val_t ;
-  debug:string list
+  debug:string list;
+  execs:num
 |>`;
-val bil_stepstate_pco_def = Define `bil_stepstate_pco s = s.pco`;
-val bil_stepstate_termcode_def = Define `bil_stepstate_termcode s = s.termcode`;
 
 val bil_exec_step_def = Define `bil_exec_step p state = case state.pco of
   | NONE => state
   | SOME (pc) => if pc.label = (Label "")
-      then state with <| pco := (bil_pcnext p state.pco) ; debug := "Empty block not allowed"::state.debug |>
+      then state with <| pco := (bil_pcnext p state.pco) ; debug := "Empty block not allowed"::state.debug ; execs := state.execs + 1 |>
       else case bil_get_program_block_info_by_label p pc.label of
-        | NONE => state with <| pco := NONE ; debug := "Wrong program counter"::state.debug |>
+        | NONE => state with <| pco := NONE ; debug := "Wrong program counter"::state.debug ; execs := state.execs + 1 |>
         | SOME (n, bl) => if (pc.index >= LENGTH bl.statements) \/ ~(state.termcode = Unknown)
-            then state with <| pco := NONE ; debug := "Program terminated"::state.debug |>
+            then state with <| pco := NONE ; debug := "Program terminated"::state.debug ; execs := state.execs + 1 |>
             else
               let stmt = EL pc.index bl.statements in
               let newenviron = bil_exec_stmt stmt state.environ in
               if ~(is_env_regular newenviron)
               then
-                state with <| pco := NONE ; debug := (CONCAT ["Irregular environment after "; bil_stmt_to_string stmt])::state.debug |>
+                state with <| pco := NONE ; debug := (CONCAT ["Irregular environment after "; bil_stmt_to_string stmt])::state.debug ; execs := state.execs + 1 |>
               else
                 case stmt of
-                  | Jmp l        => state with <| pco := SOME (<| label := l ; index := 0 |>) |>
+                  | Jmp l        => state with <| pco := SOME (<| label := l ; index := 0 |>) ; execs := state.execs + 1 |>
                   | CJmp e l1 l2 => if (bil_eval_exp e newenviron) = Int 1b
-                                    then state with <| pco := SOME (<| label := l1 ; index := 0 |>) |>
-                                    else state with <| pco := SOME (<| label := l2 ; index := 0 |>) |>
-                  | Declare _    => state with <| pco := (bil_pcnext p state.pco) ; environ := newenviron |>
-                  | Assign _ _   => state with <| pco := (bil_pcnext p state.pco) ; environ := newenviron |>
+                                    then state with <| pco := SOME (<| label := l1 ; index := 0 |>) ; execs := state.execs + 1 |>
+                                    else state with <| pco := SOME (<| label := l2 ; index := 0 |>) ; execs := state.execs + 1 |>
+                  | Declare _    => state with <| pco := (bil_pcnext p state.pco) ; environ := newenviron ; execs := state.execs + 1 |>
+                  | Assign _ _   => state with <| pco := (bil_pcnext p state.pco) ; environ := newenviron ; execs := state.execs + 1 |>
                   | Assert e     => if (bil_eval_exp e newenviron) = Int 1b
-                                    then state with <| pco := (bil_pcnext p state.pco) |>
-                                    else state with <| pco := NONE ; termcode := Unknown ; debug := "Assertion failed"::state.debug |>
-                  | Halt e       => state with <| pco := NONE ; termcode := (bil_eval_exp e newenviron) ; debug := "Program halted"::state.debug |>
-                  | _            => state with <| pco := NONE ; environ := newenviron ; termcode := Unknown ; debug := "Unknown statement"::state.debug|>
+                                    then state with <| pco := (bil_pcnext p state.pco) ; execs := state.execs + 1 |>
+                                    else state with <| pco := NONE ; termcode := Unknown ; debug := "Assertion failed"::state.debug ; execs := state.execs + 1 |>
+                  | Halt e       => state with <| pco := NONE ; termcode := (bil_eval_exp e newenviron) ; debug := "Program halted"::state.debug ; execs := state.execs + 1 |>
+                  | _            => state with <| pco := NONE ; environ := newenviron ; termcode := Unknown ; debug := "Unknown statement"::state.debug ; execs := state.execs + 1 |>
 `;
 
 (* Multiple execution of step *)
@@ -1024,20 +1021,32 @@ val bil_exec_step_n_def = Define `bil_exec_step_n p state (n:num) =
 
 (* Statements' counting and irregular program *)
 val bil_block_stmts_count_def = Define `bil_block_stmts_count bl = LENGTH bl.statements`;
-val bil_program_stmts_count_def = Define`bil_program_stmts_count p = SUM (MAP bil_block_stmts_count p)`;
 val bil_program_lbl_unique_def = Define`bil_program_lbl_unique (p:program) = ALL_DISTINCT (MAP (λbl.(bl.label)) p)`;
 val bil_program_no_empty_blocks_def = Define`bil_program_no_empty_blocks p = (FIND ($= 0) (FILTER (λl.l = 0) (MAP bil_block_stmts_count p)) = NONE)`;
 val bil_program_irregular_def = Define `bil_program_irregular p = ~(bil_program_lbl_unique p ∧ bil_program_no_empty_blocks p)`;
 
 val bil_pcinit_def = Define `bil_pcinit (p:program) = let bl = EL 0 p in <| label := bl.label ; index := 0 |>`;
-val bil_stateinit_def = Define `bil_stateinit (p:program) = <|
-  pco      := SOME (bil_pcinit p) ;
-  environ  := (λx.(NoType, Unknown)):environment ;
-  termcode := Unknown ;
-  debug    := if (bil_program_irregular p)
+val bil_state_init_def = Define `bil_state_init (p:program) = <|
+    pco      := SOME (bil_pcinit p)
+  ; environ  := (λx.(NoType, Unknown)):environment
+  ; termcode := Unknown
+  ; debug    := if (bil_program_irregular p)
                 then ["Irregular program detected (duplicate labels or empty statements)"]
                 else []
+  ; execs    := 0
 |>`;
+
+
+(* ------------------------------------------------------------------------- *)
+(*  Misc Tools                                                               *)
+(* ------------------------------------------------------------------------- *)
+val bil_stepstate_pco_def = Define `bil_stepstate_pco s = s.pco`;
+val bil_stepstate_termcode_def = Define `bil_stepstate_termcode s = s.termcode`;
+val bil_program_stmts_count_def = Define`bil_program_stmts_count p = SUM (MAP bil_block_stmts_count p)`;
+val bil_read_address_label_def = Define `bil_read_address_label l = case l of
+  | Address n => n
+  | _ => 0b
+`;
 
 
 (* ------------------------------------------------------------------------- *)
