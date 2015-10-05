@@ -5,10 +5,22 @@
 (* DATE          : 2015                                                      *)
 (* ========================================================================= *)
 
-loadPath := "/opt/hol_snapshot/examples/l3-machine-code/common" :: !loadPath;
-loadPath := "/opt/hol_snapshot/examples/l3-machine-code/arm8" :: !loadPath;
-loadPath := "/opt/hol_snapshot/examples/l3-machine-code/arm8/model" :: !loadPath;
-loadPath := "/opt/hol_snapshot/examples/l3-machine-code/arm8/step" :: !loadPath;
+(* HOL path *)
+val holpath =
+  let
+    val lpfirst = List.last (!loadPath);
+    val toks    = String.tokens (fn c => c = #"/") lpfirst;
+  in
+    "/" ^ String.concatWith "/" (List.take (toks, List.length toks - 1))
+  end
+;
+
+(* Load path *)
+loadPath := holpath ^ "/examples/bil/bilmodel"                :: !loadPath;
+loadPath := holpath ^ "/examples/l3-machine-code/common"      :: !loadPath;
+loadPath := holpath ^ "/examples/l3-machine-code/arm8"        :: !loadPath;
+loadPath := holpath ^ "/examples/l3-machine-code/arm8/model"  :: !loadPath;
+loadPath := holpath ^ "/examples/l3-machine-code/arm8/step"   :: !loadPath;
 
 open HolKernel boolLib bossLib;
 load "lcsymtacs";
@@ -40,8 +52,8 @@ open wordsLib;
 (* load BIL bla bla *)
 (* load "bilTheory"; *)
 (* open bilTheory; *)
-use "/NOBACKUP/workspaces/rmet/verified_lifter/bil/bilsyntax.sml";
-use "/NOBACKUP/workspaces/rmet/verified_lifter/bil/bilsemantics.sml";
+(* use "/NOBACKUP/workspaces/rmet/verified_lifter/bil/bilsyntax.sml"; *)
+(* use "/NOBACKUP/workspaces/rmet/verified_lifter/bil/bilsemantics.sml"; *)
 
 val _ = new_theory "arm8bil";
 (* ------------------------------------------------------------------------- *)
@@ -56,6 +68,7 @@ exception UnsupportedWordSizeException;
 exception UnsupportedARM8ExpressionException of term;
 exception ArgumentException of string;
 exception ProveException of term * string;
+exception UnsupportedARM8StateField of string;
 
 (* ------------------------------------------------------------------------- *)
 (*  Misc tools                                                               *)
