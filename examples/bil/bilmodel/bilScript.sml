@@ -7,7 +7,6 @@
 (* ========================================================================= *)
 
 open HolKernel bossLib Parse;
-load "wordsTheory";
 open wordsTheory;
 
 val _ = new_theory "bil";
