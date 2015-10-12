@@ -1,6 +1,6 @@
 (* ========================================================================= *)
-(* FILE          : bilScript.sml                                             *)
-(* DESCRIPTION   : A model of BAP Intermediate Language.                     *)
+(* FILE          : bilLib.sml                                                *)
+(* DESCRIPTION   : Interpreting BAP IL language step-by-step.                *)
 (*                 Based on Antony's Fox binary words treatment.             *)
 (* AUTHOR        : (c) Roberto Metere, KTH - Royal Institute of Technology   *)
 (* DATE          : 2015                                                      *)
