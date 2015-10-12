@@ -5,55 +5,15 @@
 (* DATE          : 2015                                                      *)
 (* ========================================================================= *)
 
-(* HOL path *)
-val holpath =
-  let
-    val lpfirst = List.last (!loadPath);
-    val toks    = String.tokens (fn c => c = #"/") lpfirst;
-  in
-    "/" ^ String.concatWith "/" (List.take (toks, List.length toks - 1))
-  end
-;
-
-(* Load path *)
-loadPath := holpath ^ "/examples/bil/bilmodel"                :: !loadPath;
-loadPath := holpath ^ "/examples/l3-machine-code/common"      :: !loadPath;
-loadPath := holpath ^ "/examples/l3-machine-code/arm8"        :: !loadPath;
-loadPath := holpath ^ "/examples/l3-machine-code/arm8/model"  :: !loadPath;
-loadPath := holpath ^ "/examples/l3-machine-code/arm8/step"   :: !loadPath;
-
-open HolKernel boolLib bossLib;
-load "lcsymtacs";
-load "utilsLib";
+open HolKernel boolLib bossLib Parse;
 open lcsymtacs utilsLib;
 open wordsLib blastLib;
-load "updateTheory";
-load "arm8Theory";
 open state_transformerTheory updateTheory arm8Theory;
-load "stateTheory";
 open stateTheory;
-load "arm8_stepTheory";
 open lcsymtacs arm8_stepTheory;
-(*open  arm_configLib; *)
-load "state_transformerSyntax";
 open state_transformerSyntax;
-load "arm8_stepLib";
 open arm8_stepLib;
-
-load "arithmeticTheory";
-load "wordsTheory";
-load "fcpTheory";
-load "bitTheory";
-load "blastLib";
-load "sum_numTheory";
-load "pred_setTheory";
-open wordsLib;
-
-(* load BIL bla bla *)
-(* load "bilTheory"; *)
-(* open bilTheory; *)
-(* use "/NOBACKUP/workspaces/rmet/verified_lifter/bil/bilsyntax.sml"; *)
-(* use "/NOBACKUP/workspaces/rmet/verified_lifter/bil/bilsemantics.sml"; *)
+open bilTheory;
 
 val _ = new_theory "arm8bil";
 (* ------------------------------------------------------------------------- *)
@@ -78,6 +38,16 @@ fun opname t = (fst o dest_const o fst o strip_comb) t;
 val fst3 = fn (t, _, _) => t;
 val snd3 = fn (_, t, _) => t;
 val trd3 = fn (_, _, t) => t;
+
+(*
+  Wrapper of prove function.
+  It raises a ProveException if unable to prove, showing the initial
+  goal (pretty printed).
+*)
+val tryprove = fn (goal, tac) => (prove(goal, tac))
+    handle HOL_ERR {message: string, origin_function: string, origin_structure: string} => raise ProveException(goal, message)
+;
+
 fun REPEATN (n, tac) = EVERY (List.tabulate (n, fn n => tac));
 val EVALBOOL = (EQT_ELIM o EVAL);
 fun MP_NOFAIL th1 th2 = MP th1 th2 handle e => th1;
@@ -95,7 +65,7 @@ val CONJL = fn lst =>
     then TRUTH
     else
       let
-        val thm1::thms = lst
+        val thm1::thms = lst; (* apparently it is not an exhaustive pattern, but here the list is not-null, then everything is ok *)
         fun conjl lst thm = case lst of
             []   => thm
           | e::l => conjl l (CONJ e thm)
@@ -138,7 +108,6 @@ fun MP_NUM_BIN thImp (be1, ae1, thm1) (be2, ae2, thm2) =
 fun MP_ITE thImp (be1, ae1, thm1) (be2, ae2, thm2) (be3, ae3, thm3) = 
   MP_CONJL (((SPECL [ae1, ae2, ae3, be1, be2, be3]) o SPEC_ENV) thImp) (List.rev [(UNDISCH_ALL o SPEC_ALL) thm1, (UNDISCH_ALL o SPEC_ALL) thm2, (UNDISCH_ALL o SPEC_ALL) thm3])
 ;
-
 
 fun MP_NUM_ITE thImp (be1, ae1, thm1) (be2, ae2, thm2) (be3, ae3, thm3) = 
   MP_CONJL ((UNDISCH o UNDISCH o (SPECL [ae1, ae2, ae3, be1, be2, be3]) o SPEC_ENV) thImp) (List.rev [(UNDISCH_ALL o SPEC_ALL) thm1, (UNDISCH_ALL o SPEC_ALL) thm2, (UNDISCH_ALL o SPEC_ALL) thm3])
@@ -256,16 +225,6 @@ fun DISPOSE_HYP th =
   end
 ;
 
-
-(*
-  Wrapper of prove function.
-  It raises a ProveException if unable to prove, showing the initial
-  goal (pretty printed).
-*)
-val tryprove = fn (goal, tac) => (prove(goal, tac))
-    handle HOL_ERR {message: string, origin_function: string, origin_structure: string} => raise ProveException(goal, message)
-;
-
 (* ------------------------------------------------------------------------- *)
 (*  Type and size utils                                                      *)
 (* ------------------------------------------------------------------------- *)
@@ -330,11 +289,13 @@ fun is_arm8_app t cmp =
     val godeep = fn t => (snd o dest_comb) t;
     val subst1 = fn t => subst [godeep t |-> dummystate] t;
     val subst2 = fn t => (subst [(godeep o fst o dest_comb) t |-> dummystate] o fst o dest_comb) t;
+    val subst3 = fn t => (subst [(godeep o godeep) t |-> dummystate]) t;
   in
             (is_comb t)
     andalso (
                   (subst1 t = subst1 cmp)
       handle _ => (subst2 t = subst1 cmp)
+      handle _ => (subst3 t = subst3 cmp)
       handle _ => false
     )
   end
@@ -473,7 +434,6 @@ val arm8_supported_den = fn a8s => [
   
   `` *)
 ];
-
 
 val is_arm8_den = fn t =>
   let
@@ -1517,6 +1477,15 @@ fun list_split lst =
     ls lst [] []
   end
 ;
+fun list_uniq lst =
+  let
+    fun lu lst res = case lst of
+        []    =>  res
+      | e::l  =>  lu l (if List.exists (fn x => x = e) res then res else e::res)
+  in
+    lu lst []
+  end
+;
 
 (* ------------------------------------------------------------------------- *)
 (*  Field update extraction of ARMv8 states                                  *)
@@ -1646,8 +1615,6 @@ fun arm8_supported_fields a8s = (
 val arm8_supported_fields_HOLstr = List.map (fn x => bil_a8e2HOLstring x) (arm8_supported_fields ``a8s:arm8_state``);
 val arm8_supported_fields_str = List.map (fn x => (stringSyntax.fromHOLstring o eval o bil_a8e2HOLstring) x) (arm8_supported_fields ``a8s:arm8_state``);
 
-
-
 fun bil_copy_a8s_state_stmts_prefix a8s prefix =
   let
     val gen_assign_tmp = 
@@ -1667,6 +1634,7 @@ fun bil_copy_a8s_state_stmts_prefix a8s prefix =
 
 fun bil_full_backup_arm8_vars_tmp bs =
   let
+    val a8s = ``a8s:arm8_state``;
     val gen_assign_tmp = 
       List.map (fn t => 
               let
@@ -1684,6 +1652,7 @@ fun bil_full_backup_arm8_vars_tmp bs =
 
 fun bil_backup_arm8_vars_tmp bs bklst =
   let
+    val a8s = ``a8s:arm8_state``;
     val removeme = ``rmme:bool``;
     val gen_assign_tmp = 
       List.map (fn t => 
@@ -1747,6 +1716,21 @@ fun arm8_branch_thm_join thl = case thl of
   | _ => thl
 ;
 
+fun supported_accesses a8sch =
+  let
+    val supp_pairs = List.map (fn x => (x, opname x)) (arm8_supported_den ``s:arm8_state``);
+    val (writes, aes) = list_split a8sch;
+    fun extract_reads ae res = 
+            if (is_reg ae)      then  (stringSyntax.fromHOLstring (eval ``r2s ^((snd o dest_comb) ae)``))::res
+      else  if (is_arm8_den ae) then  (opname ae)::res
+      else  if (is_comb ae)     then  List.concat (List.map (fn x => extract_reads x []) ((snd o strip_comb) ae))
+      else  res;
+    val reads  =  List.concat (List.map (fn x => extract_reads x []) aes);
+  in
+    list_uniq (list_union writes reads)
+  end
+;
+
 fun tc_stmt_arm8_hex instr =
   let
     val arm8thl = arm8_branch_thm_join (arm8_step_hex instr);
@@ -1765,7 +1749,7 @@ fun tc_stmt_arm8_hex instr =
                 end
               ) a8sch;
             val (assign, certs) = list_split certify_assignments;
-            val cp_tmp = bil_backup_arm8_vars_tmp ``bs:stepstate`` (List.map (fn (x,y) => x) a8sch);
+            val cp_tmp = bil_backup_arm8_vars_tmp ``bs:stepstate`` (supported_accesses a8sch);
             val stmts = eval (List.foldl (fn (a,b) => ``[^a] ++ ^b``) ``[]:bil_stmt_t list`` assign);
           in
             (eval ``^cp_tmp ++ ^stmts``, certs, arm8thl)
@@ -1783,7 +1767,7 @@ fun tc_stmt_arm8_hexlist instrlst =
             let
               val (stmts, certs, arm8thl) = tc_stmt_arm8_hex i;
               val changes = (extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) (List.hd arm8thl);
-              val is_branch = (not o List.null o List.filter (fn (s, e) => s = "arm8_state_branch_hint")) changes;
+              val is_branch = (optionSyntax.is_some o snd o List.hd o List.filter (fn (s, e) => s = "arm8_state_branch_hint")) changes;
               val is_branch_conditional = is_branch andalso (boolSyntax.is_cond o snd o List.hd o List.filter (fn (s, e) => s = "arm8_state_PC")) changes;
               val (assigns_n_jmp, jmp_certs) = if (is_branch_conditional) then
                   let
