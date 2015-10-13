@@ -1266,8 +1266,9 @@ fun tc_stmt_arm8_hexlist instrlst =
             let
               val (stmts, certs, arm8thl) = tc_stmt_arm8_hex i;
               val changes = (extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) (List.hd arm8thl);
-              val is_branch = (optionSyntax.is_some o snd o List.hd o List.filter (fn (s, e) => s = "arm8_state_branch_hint")) changes;
-              val is_branch_conditional = is_branch andalso (boolSyntax.is_cond o snd o List.hd o List.filter (fn (s, e) => s = "arm8_state_PC")) changes;
+              val branch_hint = (snd o List.hd o List.filter (fn (s, e) => s = "arm8_state_branch_hint")) changes;
+              val is_branch_conditional = boolSyntax.is_cond branch_hint;
+              val is_branch = is_branch_conditional orelse optionSyntax.is_some branch_hint;
               val (assigns_n_jmp, jmp_certs) = if (is_branch_conditional) then
                   let
                     val cond = (snd o List.hd o List.filter (fn (s, e) => s = "arm8_state_PC")) changes;
