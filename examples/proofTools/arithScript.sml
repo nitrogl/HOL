@@ -77,11 +77,9 @@ val n2w_w2w_concat_0 = store_thm("n2w_w2w_concat_0",
     THEN  ((FULL_SIMP_TAC (srw_ss()) []))
 );
 
-val ADD2_DIV2_ADD1_DIV2 = store_thm("ADD2_DIV2_ADD1_DIV2", 
+val ADDN_DIVN_DIVN_ADD1 = store_thm("ADDN_DIVN_DIVN_ADD1", 
     ``∀(n :num). (2 + n) DIV 2 = 1 + n DIV 2``
-  ,       GEN_TAC
-    THEN  (ASSUME_TAC ((DISPOSE_HYP o DISCH_ALL o (SPECL [``1:num``, ``n:num``]) o UNDISCH_ALL o (SPEC ``2:num``)) arithmeticTheory.ADD_DIV_ADD_DIV))
-    THEN  (FULL_SIMP_TAC (srw_ss()) [])
+  , (FULL_SIMP_TAC (srw_ss()) [])
 );
 
 val MULT_SUM = store_thm("MULT_SUM", 
@@ -132,7 +130,7 @@ val EVEN_ODD_MIX_DIV_ADD = store_thm("EVEN_ODD_MIX_DIV_ADD",
       THEN  (FULL_SIMP_TAC (arith_ss) [Once arithmeticTheory.MULT_COMM])
       THEN  (FULL_SIMP_TAC (arith_ss) [GSYM arithmeticTheory.LEFT_ADD_DISTRIB])
       THEN  (FULL_SIMP_TAC (pure_ss) [arithmeticTheory.ADD_COMM])
-      THEN  (FULL_SIMP_TAC (srw_ss()) [ADD2_DIV2_ADD1_DIV2])
+      THEN  (FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.ADD_DIV_ADD_DIV])
       THEN  (FULL_SIMP_TAC (pure_ss) [MULT_SUM, MULT_SUM_COMM])
       THEN  (FULL_SIMP_TAC (srw_ss()) [GSYM MULT_SUM, arithmeticTheory.MULT_DIV])
       THEN  (FULL_SIMP_TAC (arith_ss) [])
@@ -163,10 +161,10 @@ val GT1_DIV2_GT0 = store_thm("GT1_DIV2_GT0",
     THEN  (FULL_SIMP_TAC (arith_ss) [])
     THEN  (RW_TAC (arith_ss) [SUC_INC])
     THEN  (SIMP_TAC (pure_ss) [Once arithmeticTheory.ADD_COMM])
-    THEN  (FULL_SIMP_TAC (arith_ss) [ADD2_DIV2_ADD1_DIV2])
+    THEN  (FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.ADD_DIV_ADD_DIV])
 );
 
-val SUB2_DIV2_SUB1_DIV2 = store_thm("SUB2_DIV2_SUB1_DIV2", 
+val SUB2_DIV2_DIV2_SUB1 = store_thm("SUB2_DIV2_DIV2_SUB1", 
     ``∀(n :num). (n - 2) DIV 2 = n DIV 2 - 1``
   ,       Induct
     THENL [
@@ -177,7 +175,7 @@ val SUB2_DIV2_SUB1_DIV2 = store_thm("SUB2_DIV2_SUB1_DIV2",
               (FULL_SIMP_TAC (arith_ss) [])
       ,       (RW_TAC (pure_ss) [])
         THEN  (FULL_SIMP_TAC (arith_ss) [SUC_INC])
-        THEN  (RW_TAC (pure_ss) [Once arithmeticTheory.ADD_COMM, ADD2_DIV2_ADD1_DIV2])
+        THEN  (RW_TAC (pure_ss) [Once arithmeticTheory.ADD_COMM, ADDN_DIVN_DIVN_ADD1])
         THEN  (FULL_SIMP_TAC (arith_ss) [])
       ]
     ]
@@ -237,7 +235,7 @@ val SUM_LT_2EXP = store_thm("SUM_LT_2EXP",
 
      EVENS_DIV_ADD
      ODDS_DIV_ADD
-     SUB2_DIV2_SUB1_DIV2
+     SUB2_DIV2_DIV2_SUB1
      ODD_SUM_GT1
      GT1_DIV2_GT0
      ADDSUB_COMM
@@ -261,7 +259,7 @@ val SUM_2EXP_EQ = store_thm("SUM_2EXP_EQ",
             THEN  (FULL_SIMP_TAC (bool_ss) [GSYM arithmeticTheory.EVEN_ODD])
           )
           THEN  (FULL_SIMP_TAC (arith_ss) [ODDS_DIV_ADD, (GSYM arithmeticTheory.EXP2_LT)])
-          THEN  (FULL_SIMP_TAC (arith_ss) [SUB2_DIV2_SUB1_DIV2])
+          THEN  (FULL_SIMP_TAC (arith_ss) [SUB2_DIV2_DIV2_SUB1])
           THEN  (ASSUME_TAC ( (UNDISCH_ALL o SPEC_ALL) ODD_SUM_GT1 ))
           THEN  (ASSUME_TAC ( (UNDISCH_ALL o (SPEC ``(j:num) + k``)) GT1_DIV2_GT0 ))
           THEN  (FULL_SIMP_TAC (arith_ss) [ADDSUB_COMM])
@@ -301,7 +299,7 @@ val SUM_2EXP_EQ = store_thm("SUM_2EXP_EQ",
               THEN  (FULL_SIMP_TAC (bool_ss) [GSYM arithmeticTheory.EVEN_ODD])
             )
             THEN  (FULL_SIMP_TAC (arith_ss) [ODDS_DIV_ADD, (GSYM arithmeticTheory.EXP2_LT)])
-            THEN  (FULL_SIMP_TAC (arith_ss) [SUB2_DIV2_SUB1_DIV2, ODD_MOD2])
+            THEN  (FULL_SIMP_TAC (arith_ss) [SUB2_DIV2_DIV2_SUB1, ODD_MOD2])
           ]
         ,
                 (FULL_SIMP_TAC (srw_ss()) [EVEN_ODD_MIX_DIV_ADD])
@@ -346,21 +344,16 @@ val DIV_PRODMOD_LT_2EXP = store_thm("DIV_PRODMOD_LT_2EXP",
     )
 );
 
-val DIV_MOD = store_thm("DIV_MOD", 
-    ``∀ (n :num) (j :num). (0 < n) ==> (n * (j DIV n) + j MOD n = j)``
-  , (REWRITE_TAC [Once arithmeticTheory.MULT_COMM]) THEN (FULL_SIMP_TAC (arith_ss) [arithmeticTheory.DIVISION])
-);
-
 val MOD_2EXP_EQ = store_thm("MOD_2EXP_EQ", 
     ``∀ (n :num) (j :num). j MOD 2**(SUC n) = 2 * ((j DIV 2) MOD 2**n) + j MOD 2``
   ,       (FULL_SIMP_TAC (arith_ss) [SUC_INC, arithmeticTheory.EXP_ADD, arithmeticTheory.DIV_MOD_MOD_DIV])
-    THEN  (REWRITE_TAC [Once ((SIMP_RULE arith_ss [] o SPECL [``2:num``, ``j MOD ((2 :num) * (2 :num) ** n)``] o GSYM) DIV_MOD)])
+    THEN  (REWRITE_TAC [Once ((SIMP_RULE arith_ss [] o SPECL [``2:num``, ``j MOD ((2 :num) * (2 :num) ** n)``] o (SIMP_RULE (pure_ss) [arithmeticTheory.MULT_COMM]) o GEN_ALL o DISCH_ALL o CONJUNCT1 o SPEC_ALL o UNDISCH_ALL o SPEC_ALL) arithmeticTheory.DIVISION)])
     THEN  (FULL_SIMP_TAC (arith_ss) [arithmeticTheory.MOD_MULT_MOD])
 );
 
 val MULT_DIV_LE = store_thm("MULT_DIV_LE", 
     ``∀ (n:num) (j:num). (0 < n) ==> (n * (j DIV n) <= j)``
-  , (REPEAT STRIP_TAC) THEN (ASSUME_TAC (SPEC_ALL DIV_MOD)) THEN (RW_TAC (arith_ss) [])
+  , (REPEAT STRIP_TAC) THEN (ASSUME_TAC ((SPEC ``j:num`` o UNDISCH_ALL o SPECX) arithmeticTheory.DIVISION)) THEN (RW_TAC (arith_ss) [])
 );
 
 (* ------------------------------------------------------------------------- *)
