@@ -516,10 +516,8 @@ val BIL_MOD_2EXP64_TAC = (
   THEN (REPEATN (9, BIL_EVAL_ONCE_TAC))
   THEN EVAL_TAC
   THEN AP_TERM_TAC
-  THEN (FULL_SIMP_TAC (arith_ss) [GSYM arithmeticTheory.DIV_MOD_MOD_DIV])
-  THEN (FULL_SIMP_TAC (arith_ss) [arithmeticTheory.EVEN_MOD2, MODN_MODM])
   THEN (ASSUME_TAC ((DISPOSE_HYP o SPECL [``2:num``, ``n:num``]) MULT_DIV_LE))
-  THEN (FULL_SIMP_TAC (arith_ss) [DIV_MOD])
+  THEN (FULL_SIMP_TAC (arith_ss) [(GSYM o (SIMP_RULE (pure_ss) [arithmeticTheory.MULT_COMM]) o GEN_ALL o DISCH_ALL o CONJUNCT1 o SPEC_ALL o UNDISCH_ALL o SPEC_ALL) arithmeticTheory.DIVISION])
 );
 
 
