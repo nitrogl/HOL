@@ -280,79 +280,25 @@ val SUM_LT_2EXP = store_thm("SUM_LT_2EXP"
      SUB2_DIV2_DIV2_SUB1
      ODD_SUM_GT1
      GT1_DIV2_GT0
-     ADDSUB_COMM
-     ODD_POS
-     ODD_DIV2_EQ_PREC
      EVEN_ODD_MIX_DIV2_ADD
-     SUM_LT_2EXP
 *)
 val SUM_2EXP_EQ = store_thm("SUM_2EXP_EQ"
   , ``∀ (n:num) (j:num) (k:num). (j + k < 2**(SUC n)) = ((j DIV 2) + (k DIV 2) + (j MOD 2) * (k MOD 2) < 2**n)``
-  ,       (REPEAT GEN_TAC)
-    THEN  EQ_TAC
+  ,       (REPEAT STRIP_TAC)
+    THEN  (Cases_on `EVEN j`)
     THENL [
-            (Cases_on `EVEN j = EVEN k`)
-      THENL [
-              (RW_TAC (pure_ss) [arithmeticTheory.MOD_2])
+              (Cases_on `EVEN k`)
         THENL [
-                (FULL_SIMP_TAC (srw_ss()) [EVENS_DIV2_ADD, (GSYM arithmeticTheory.EXP2_LT)])
-          , (
-                  (FULL_SIMP_TAC (bool_ss) [arithmeticTheory.EVEN_ODD])
-            THEN  (FULL_SIMP_TAC (bool_ss) [GSYM arithmeticTheory.EVEN_ODD])
-          )
-          THEN  (FULL_SIMP_TAC (arith_ss) [ODDS_DIV2_ADD, (GSYM arithmeticTheory.EXP2_LT)])
-          THEN  (FULL_SIMP_TAC (arith_ss) [SUB2_DIV2_DIV2_SUB1])
-          THEN  (ASSUME_TAC ( (UNDISCH_ALL o SPEC_ALL) ODD_SUM_GT1 ))
-          THEN  (ASSUME_TAC ( (UNDISCH_ALL o (SPEC ``(j:num) + k``)) GT1_DIV2_GT0 ))
-          THEN  (FULL_SIMP_TAC (arith_ss) [ADDSUB_COMM])
+            (FULL_SIMP_TAC (arith_ss) [arithmeticTheory.EVEN_MOD2, EVENS_DIV2_ADD, arithmeticTheory.EXP2_LT])
+          , (FULL_SIMP_TAC (arith_ss) [arithmeticTheory.EVEN_MOD2, ODD_MOD2, EVEN_ODD_MIX_DIV2_ADD, EVEN_ODD_MIX_DIV2, arithmeticTheory.EXP2_LT])
         ]
-      ,
-              (FULL_SIMP_TAC (bool_ss) [arithmeticTheory.EVEN_ODD])
-        THEN  (ASSUME_TAC ( (UNDISCH_ALL o fst o EQ_IMP_RULE o GSYM o (SPECL [``j:num``, ``k:num``])) arithmeticTheory.ODD_ADD ))
-        THEN  (ASSUME_TAC ( (UNDISCH_ALL o (SPEC ``(j:num) + k``)) ODD_POS ))
-        THEN  (ASSUME_TAC ( (UNDISCH_ALL o GSYM o fst o EQ_IMP_RULE o UNDISCH_ALL o (SPEC ``(j:num) + k``)) ODD_DIV2_EQ_PREC ))
-        THEN  (FULL_SIMP_TAC (bool_ss) [GSYM arithmeticTheory.ODD_EVEN])
-        THEN  (RW_TAC (arith_ss) [EVEN_ODD_MIX_DIV2_ADD, arithmeticTheory.MOD_2]) (* 4 subgoals from here *)
+      ,       (Cases_on `EVEN k`)
         THENL [
-            (FULL_SIMP_TAC (bool_ss) [arithmeticTheory.ODD_EVEN])
-          , (FULL_SIMP_TAC (bool_ss) [arithmeticTheory.EVEN_ODD, (GSYM arithmeticTheory.EXP2_LT)])
-          , (FULL_SIMP_TAC (bool_ss) [arithmeticTheory.EVEN_ODD, (GSYM arithmeticTheory.EXP2_LT)])
-          , (FULL_SIMP_TAC (bool_ss) [arithmeticTheory.EVEN_ODD, (GSYM arithmeticTheory.EXP2_LT)])
-        ]
-      ]
-    ,
-              (FULL_SIMP_TAC (arith_ss) [Once (GSYM arithmeticTheory.ADD_ASSOC)])
-        THEN  (FULL_SIMP_TAC (pure_ss) [Once arithmeticTheory.ADD_COMM])
-        THEN  (RW_TAC (pure_ss) [])
-        THEN  (ASSUME_TAC ( (UNDISCH_ALL o (SPECL [``n:num``, ``(j:num) DIV 2 + (k :num) DIV 2``, ``j MOD 2 * k MOD 2``])) SUM_LT_2EXP ))
-        
-        THEN  (Cases_on `EVEN j = EVEN k`)
-        THENL [
-                (Cases_on `EVEN j`)
-          THENL [
-            (
-                    (FULL_SIMP_TAC (bool_ss) [arithmeticTheory.EVEN_ODD])
-              THEN  (FULL_SIMP_TAC (bool_ss) [GSYM arithmeticTheory.EVEN_ODD])
-            )
-            THEN  (FULL_SIMP_TAC (srw_ss()) [EVENS_DIV2_ADD, (GSYM arithmeticTheory.EXP2_LT)])
-          ,
-            (
-                    (FULL_SIMP_TAC (bool_ss) [arithmeticTheory.EVEN_ODD])
-              THEN  (FULL_SIMP_TAC (bool_ss) [GSYM arithmeticTheory.EVEN_ODD])
-            )
-            THEN  (FULL_SIMP_TAC (arith_ss) [ODDS_DIV2_ADD, (GSYM arithmeticTheory.EXP2_LT)])
-            THEN  (FULL_SIMP_TAC (arith_ss) [SUB2_DIV2_DIV2_SUB1, ODD_MOD2])
-          ]
-        ,
-                (FULL_SIMP_TAC (srw_ss()) [EVEN_ODD_MIX_DIV2_ADD])
-          THEN  (FULL_SIMP_TAC (bool_ss) [arithmeticTheory.EVEN_ODD])
-          THEN  (ASSUME_TAC ( (UNDISCH_ALL o fst o EQ_IMP_RULE o GSYM o (SPECL [``j:num``, ``k:num``])) arithmeticTheory.ODD_ADD ))
-          THEN  (ASSUME_TAC ( (UNDISCH_ALL o (SPEC ``(j:num) + k``)) ODD_POS ))
-          THEN  (ASSUME_TAC ( (UNDISCH_ALL o GSYM o fst o EQ_IMP_RULE o UNDISCH_ALL o (SPEC ``(j:num) + k``)) ODD_DIV2_EQ_PREC ))
-          THEN  (FULL_SIMP_TAC (bool_ss) [])
-          
-          THEN  (Cases_on `EVEN j`)
-          THEN  (FULL_SIMP_TAC (arith_ss) [(GSYM arithmeticTheory.EXP2_LT), arithmeticTheory.MOD_2])
+            (FULL_SIMP_TAC (arith_ss) [arithmeticTheory.EVEN_MOD2, ODD_MOD2, EVEN_ODD_MIX_DIV2_ADD, EVEN_ODD_MIX_DIV2, arithmeticTheory.EXP2_LT])
+          ,       (FULL_SIMP_TAC (bool_ss) [arithmeticTheory.EVEN_ODD])
+            THEN  (ASSUME_TAC ((UNDISCH_ALL o SPEC_ALL) ODD_SUM_GT1))
+            THEN  (ASSUME_TAC ((UNDISCH_ALL o (SPEC ``(j:num) + k``)) GT1_DIV2_GT0))
+            THEN  (FULL_SIMP_TAC (arith_ss) [ODD_MOD2, ODDS_DIV2_ADD, SUB2_DIV2_DIV2_SUB1, arithmeticTheory.EXP2_LT])
         ]
     ]
 );
