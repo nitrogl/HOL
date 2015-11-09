@@ -62,20 +62,6 @@ val EXP2_LT_ALT = store_thm("EXP2_LT_ALT"
     ]
 );
 
-val EXP2_LT_ALT2 = store_thm("EXP2_LT_ALT2"
-  , ``∀ (n:num) (m:num). (m < 2**n = 2*m < 2** SUC n) ∧ (m < 2**n = 2*m + 1 < 2** SUC n)``
-  ,       (REPEAT STRIP_TAC)
-    THENL [
-              (REWRITE_TAC [Once (prove(``m = ((2:num)*m) DIV 2``, FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.MULT_DIV, Once arithmeticTheory.MULT_COMM]))])
-        THEN  (FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.EXP2_LT])
-      ,       (REWRITE_TAC [Once (prove(``m = ((2:num)*m) DIV 2``, FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.MULT_DIV, Once arithmeticTheory.MULT_COMM]))])
-        THEN  (ASSUME_TAC (prove(``EVEN (2*m)``, PROVE_TAC [arithmeticTheory.EVEN_EXISTS])))
-        THEN  (FULL_SIMP_TAC (srw_ss()) [SPEC ``2*m:num`` EVEN_DIV_EQ_SUC])
-        THEN  (FULL_SIMP_TAC (arith_ss) [SUC_INC, arithmeticTheory.EXP2_LT])
-    ]
-
-);
-
 val n2w_w2w_concat_0 = store_thm("n2w_w2w_concat_0", 
     ``∀(w :β word) (z :α word) (c :γ word). FINITE 𝕌((:α) :α itself) ==> (dimindex (:β) <= dimindex (:γ) ==> ((z = 0w) ==> ((c = (n2w (w2n w) :γ word)) ==> (c = z @@ w))))``
   ,       (RW_TAC (pure_ss) [])
@@ -244,6 +230,20 @@ val EVEN_DIV_EQ_SUC = store_thm("EVEN_DIV_EQ_SUC"
         THEN  (RW_TAC (srw_ss()) [GSYM MULT_SUM, arithmeticTheory.MULT_DIV])
         THEN  (FULL_SIMP_TAC (arith_ss) [])
     ]
+);
+
+val EXP2_LT_ALT2 = store_thm("EXP2_LT_ALT2"
+  , ``∀ (n:num) (m:num). (m < 2**n = 2*m < 2** SUC n) ∧ (m < 2**n = 2*m + 1 < 2** SUC n)``
+  ,       (REPEAT STRIP_TAC)
+    THENL [
+              (REWRITE_TAC [Once (prove(``m = ((2:num)*m) DIV 2``, FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.MULT_DIV, Once arithmeticTheory.MULT_COMM]))])
+        THEN  (FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.EXP2_LT])
+      ,       (REWRITE_TAC [Once (prove(``m = ((2:num)*m) DIV 2``, FULL_SIMP_TAC (srw_ss()) [arithmeticTheory.MULT_DIV, Once arithmeticTheory.MULT_COMM]))])
+        THEN  (ASSUME_TAC (prove(``EVEN (2*m)``, PROVE_TAC [arithmeticTheory.EVEN_EXISTS])))
+        THEN  (FULL_SIMP_TAC (srw_ss()) [SPEC ``2*m:num`` EVEN_DIV_EQ_SUC])
+        THEN  (FULL_SIMP_TAC (arith_ss) [SUC_INC, arithmeticTheory.EXP2_LT])
+    ]
+
 );
 
 val ODDSUC_DIV2_EQ_SUC = store_thm("ODDSUC_DIV2_EQ_SUC"
