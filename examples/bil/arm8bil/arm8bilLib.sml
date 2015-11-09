@@ -218,13 +218,14 @@ val is_plus_lt_2exp64 = fn t =>
   Another annoying structure found through the armv8 expressions
   is the MOD 2**64
 *)
-val is_mod_2exp64 = fn t =>
+val is_plus_mod_2exp64 = fn t =>
   if (numSyntax.is_mod t)
   then
     let
+      val tplus = (List.nth ((snd o strip_comb) t, 0));
       val t2exp = (List.nth ((snd o strip_comb) t, 1));
     in
-      (eval t2exp) = (eval ``(2:num) ** 64``)
+      (numSyntax.is_plus tplus) andalso ((eval t2exp) = (eval ``(2:num) ** 64``))
     end
   else
     false
@@ -446,7 +447,7 @@ val BIL_OP_FULL_SIMP_TAC = (FULL_SIMP_TAC (srw_ss()) [
     , arithmeticTheory.GREATER_EQ
     , BIT_DIV_MOD
     , SUM_2EXP_EQ
-    , MOD_2EXP_EQ
+    , GEN_ALL (SIMP_RULE (arith_ss) [] (SPECL [``63:num``, ``n:num``, ``m:num``] PLUS_MOD_2EXP_EQ))
     , n2w_w2w_concat_0
   ]
 );
@@ -469,7 +470,7 @@ val BIL_OP_BIT_TAC = (
   THEN  EVAL_TAC
   THEN  (ASSUME_TAC (SPECL [``63:num``, ``n:num``, ``m:num``] BITS_LT_2EXP))
   THEN  (FULL_SIMP_TAC (srw_ss()) [MODN_MODM])
-  THEN  (FULL_SIMP_TAC (arith_ss) [bitTheory.MOD_2EXP_def, bitTheory.DIV_2EXP_def, bitTheory.BITS_def, EXP_LT_ALT])
+  THEN  (FULL_SIMP_TAC (arith_ss) [bitTheory.MOD_2EXP_def, bitTheory.DIV_2EXP_def, bitTheory.BITS_def, EXP2_LT_ALT])
 );
 val BIL_OP_TAC = (
         BIL_OP_FULL_SIMP_TAC
@@ -504,20 +505,30 @@ val BIL_NUMERAL_TAC = (
 );
 val BIL_PLUS_LT_2EXP64_TAC = (
         (REPEAT STRIP_TAC)
-  THEN  (REPEATN (12, BIL_EVAL_ONCE_TAC))
+  THEN  (REPEATN (13, BIL_EVAL_ONCE_TAC))
   THEN  EVAL_TAC
   THEN  ((FULL_SIMP_TAC (arith_ss) [arithmeticTheory.MOD_PLUS, DIV_PRODMOD_LT_2EXP]))
   THEN  (FULL_SIMP_TAC (pure_ss) [prove(``(18446744073709551616:num) = 2 ** SUC 63``, EVAL_TAC), SPECL [``63:num``, ``n:num``, ``m:num``] SUM_2EXP_EQ])
   THEN  (ASSUME_TAC ((UNDISCH_ALL o CONJ_IMP o (SPECL [``63:num``, ``n:num``, ``m:num``])) DIV_PRODMOD_LT_2EXP))
   THEN  ((FULL_SIMP_TAC (arith_ss) []))
 );
-val BIL_MOD_2EXP64_TAC = (
-       (REPEAT STRIP_TAC)
-  THEN (REPEATN (9, BIL_EVAL_ONCE_TAC))
-  THEN EVAL_TAC
-  THEN AP_TERM_TAC
-  THEN (ASSUME_TAC ((DISPOSE_HYP o SPECL [``2:num``, ``n:num``]) MULT_DIV_LE))
-  THEN (FULL_SIMP_TAC (arith_ss) [(GSYM o (SIMP_RULE (pure_ss) [arithmeticTheory.MULT_COMM]) o GEN_ALL o DISCH_ALL o CONJUNCT1 o SPEC_ALL o UNDISCH_ALL o SPEC_ALL) arithmeticTheory.DIVISION])
+val BIL_PLUS_MOD_2EXP64_TAC = (
+        (REPEAT STRIP_TAC)
+  THEN  (FULL_SIMP_TAC (arith_ss) [])
+  THEN  (REPEATN (21, BIL_EVAL_ONCE_TAC))
+  THEN  EVAL_TAC
+  THEN  (FULL_SIMP_TAC (arith_ss) [MODN_MODM])
+  THEN  ((Cases_on `EVEN n`)
+    THEN  ((Cases_on `EVEN m`)
+      THEN  (FULL_SIMP_TAC (arith_ss) [arithmeticTheory.EVEN_MOD2, ODD_MOD2, GSYM arithmeticTheory.ODD_EVEN, Once (GSYM arithmeticTheory.MOD_PLUS)])
+      THEN  EVAL_TAC
+      THEN  (ASSUME_TAC ((CONJUNCT1 o UNDISCH_ALL o CONJ_IMP o SIMP_RULE (arith_ss) [] o SPECL [``63:num``, ``n:num``, ``m:num``]) RIGHT_SHIFT_SUM_LT_2EXP))
+      THEN  (ASSUME_TAC ((CONJUNCT2 o UNDISCH_ALL o CONJ_IMP o SIMP_RULE (arith_ss) [] o SPECL [``63:num``, ``n:num``, ``m:num``]) RIGHT_SHIFT_SUM_LT_2EXP))
+      THEN  (ASSUME_TAC ((SIMP_RULE (srw_ss()) [] o SPECL [``63:num``, ``(m DIV 2 + n DIV 2) MOD 9223372036854775808``]) EXP2_LT_ALT2))
+      THEN  (ASSUME_TAC ((SIMP_RULE (srw_ss()) [] o SPECL [``63:num``, ``(m DIV 2 + (n DIV 2 + 1)) MOD 9223372036854775808``]) EXP2_LT_ALT2))
+      THEN  (FULL_SIMP_TAC (arith_ss) [arithmeticTheory.MOD_MOD])
+    )
+  )
 );
 
 
@@ -569,18 +580,24 @@ val bil_plus_lt_2exp64_tm = tryprove(
   , BIL_PLUS_LT_2EXP64_TAC
 );
 
-val bil_mod_2exp64_tm = tryprove(
-    ``∀ env n bn. (n < dimword(:64)) ==> ((bil_eval_exp (bn) env = Int (n2b_64 n)) ==> (bil_eval_exp (
-      Plus (Mult  (Const 2x)
-                  (Mod  (Div bn (Const 2x))
-                        (Const 9223372036854775808x)
-                  )
-           )
-           (Mod (bn)
-                (Const 2x)
-           )
-    ) env = Int (n2b_64 (n MOD 18446744073709551616))))``
-  , BIL_MOD_2EXP64_TAC
+val bil_plus_mod_2exp64_tm = tryprove(
+    ``∀ env n m bn bm. (n < dimword (:64)) ==> ((m < dimword (:64)) ==> ((bil_eval_exp (bn) env = Int (n2b_64 n)) ∧ (bil_eval_exp (bm) env = Int (n2b_64 m)) ==> (bil_eval_exp (
+          Plus  (Mult (Const 2x)
+                      (Mod  (Plus (Plus (Div bn (Const 2x))
+                                        (Div bm (Const 2x))
+                                  )
+                                  (Mult (Mod bn (Const 2x))
+                                        (Mod bm (Const 2x))
+                                  )
+                            )
+                            (Const 9223372036854775808x)
+                      )
+                )
+                (Xor  (Mod  bn (Const 2x))
+                      (Mod  bm (Const 2x))
+                )
+        ) env = Int (n2b_64 ((n + m) MOD 2**64)))))``
+  , BIL_PLUS_MOD_2EXP64_TAC
 );
 
 fun nw n s = wordsSyntax.mk_wordii(n, s);
@@ -847,10 +864,11 @@ fun tc_exp_arm8_prefix ae prefix =
             in
               (be, ae, mp)
             end
-        else  if  (is_mod_2exp64 ae)
+        else  if  (is_plus_mod_2exp64 ae)
           then
             let
-              val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_UN bil_mod_2exp64_tm (tce o1));
+              val (add1, add2, _) = extract_operands o1;
+              val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_BIN bil_plus_mod_2exp64_tm (tce add1) (tce add2));
               val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
             in
               (be, ae, mp)
