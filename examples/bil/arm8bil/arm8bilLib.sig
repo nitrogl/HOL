@@ -21,7 +21,7 @@ sig
   val BIL_DEN_TAC             : tactic
   val BIL_NUMERAL_TAC         : tactic
   val BIL_PLUS_LT_2EXP64_TAC  : tactic
-  val BIL_MOD_2EXP64_TAC      : tactic
+  val BIL_PLUS_MOD_2EXP64_TAC : tactic
   
   val arm8_state_zero         : term
   val tc_exp_arm8             : term -> term * term * thm
