@@ -177,3 +177,9 @@ val state = ``<|
 
 val v = snd(dest_eq (concl (EVAL ``bil_exec_step(bil_exec_step (bil_exec_step ^state))``)));
 EVAL ``bil_exec_step ^v``;
+
+
+(* TODO *)
+(* JUMP *)
+(* MEMORY *)
+(* CONDITIONAL JUMP *)
