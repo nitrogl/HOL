@@ -935,10 +935,13 @@ val bil_exec_stmt_def = Define `bil_exec_stmt stmt env = case stmt of
 `;
 
 
+val debug_concat_def = Define `debug_concat l = CONCAT l`;
+
+
 (* Statement to string (useful for debugging purposes) *)
 val bil_stmt_to_string_def = Define `bil_stmt_to_string stmt = case stmt of
-  | Declare (Var s t) => CONCAT ["Declaration of "; s]
-  | Assign v e => CONCAT ["Assignment of "; v]
+  | Declare (Var s t) => debug_concat ["Declaration of "; s]
+  | Assign v e => debug_concat ["Assignment of "; v]
   | Jmp _ => "Jump"
   | CJmp _ _ _ => "Conditional Jump"
   | Halt _ => "Halt"
@@ -996,7 +999,7 @@ val bil_exec_step_def = Define `bil_exec_step state = case state.pco of
               let newenviron = bil_exec_stmt stmt state.environ in
               if ~(is_env_regular newenviron)
               then
-                state with <| pco := NONE ; debug := (CONCAT ["Irregular environment after "; bil_stmt_to_string stmt])::state.debug ; execs := state.execs + 1 |>
+                state with <| pco := NONE ; debug := (debug_concat ["Irregular environment after "; bil_stmt_to_string stmt])::state.debug ; execs := state.execs + 1 |>
               else
                 case stmt of
                   | Jmp l        => state with <| pco := SOME (<| label := l ; index := 0 |>) ; execs := state.execs + 1 |>

@@ -1,1 +1,1 @@
-INCLUDES = ../../proofTools ../bilmodel ../../l3-machine-code/common ../../l3-machine-code/arm8/model ../../l3-machine-code/arm8/step
+INCLUDES = ../proofTools ../bilmodel ../l3-machine-code/common ../l3-machine-code/arm8/model ../l3-machine-code/arm8/step
