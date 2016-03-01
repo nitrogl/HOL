@@ -371,4 +371,33 @@ val s = state;
 val s = snd(dest_eq(concl(EVAL ``bil_exec_step ^s``)));
 val s = snd(dest_eq(concl(EVAL ``bil_exec_step ^s``)));
 
+(* MEMORY READ *)
+
+val x = ``[
+ <| label:= Label "main";
+    statements:= [
+      Declare (Var "mem" (MemByte Bit64));
+      Assign "mem" (Store (Den "mem") (Const (Reg64 5w)) (Const (Reg8 7w)) (Const (Reg8 1w)) Bit8);
+      Declare (Var "var" (Reg Bit8));
+      Assign  "var" (Load (Den "mem") (Const (Reg64 5w)) (Const (Reg8 1w)) Bit8)
+    ]
+    |>;
+ b
+]:program
+``;
+val state = ``<|
+  pco:= SOME <| label:= (Label "main"); index:= 0 |>;
+  environ:= (\v. (NoType,Unknown)) ;
+  termcode:= Unknown ;
+  debug:=d1;
+  execs:=e1;
+  pi:=^x
+|>``;
+
+val s = state;
+val s = snd(dest_eq(concl(EVAL ``bil_exec_step ^s``)));
+val s = snd(dest_eq(concl(EVAL ``bil_exec_step ^s``)));
+val s = snd(dest_eq(concl(EVAL ``bil_exec_step ^s``)));
+val s = snd(dest_eq(concl(EVAL ``bil_exec_step ^s``)));
+
 (* CONDITIONAL JUMP *)
