@@ -243,12 +243,12 @@ val arm8_supported_den = fn a8s => [
   ``, ``^(a8s).PSTATE.V
   ``, ``^(a8s).PSTATE.Z
       
-  ``(*, ``^(a8s).SP_EL0
+  ``, ``^(a8s).SP_EL0
   ``, ``^(a8s).SP_EL1
   ``, ``^(a8s).SP_EL2
   ``, ``^(a8s).SP_EL3
       
-  ``, ``^(a8s).TCR_EL1.TBI0
+  ``(*, ``^(a8s).TCR_EL1.TBI0
   ``, ``^(a8s).TCR_EL1.TBI1
   ``, ``^(a8s).TCR_EL1.tcr_el1'rst
       
@@ -1058,3 +1058,9 @@ tc_exp_arm8_prefix ``~(aaa.PSTATE.Z)`` "";
 tc_exp_arm8_prefix ``if T then F else T`` "";
 tc_exp_arm8_prefix ``if T then (aaa.REG 2w) + 3w else 2w`` "";
 
+val pat = (valOf (arm8_pattern "BitfieldMove64"));
+arm8_step pat;
+
+val [t1] = arm8_step_hex "0x910003e1";  (* mov     x1, sp *)
+tc_exp_arm8_prefix ``s.PC + 4w`` "";
+tc_exp_arm8_prefix ``s.SP_EL0 + 0w`` "";
