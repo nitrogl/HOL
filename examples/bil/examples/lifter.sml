@@ -624,6 +624,7 @@ val bil_op_tms =
           (fn s => (fst o strip_comb) ``word_2comp  ^(nw 0 s)``, fn s => ``ChangeSign        bx``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``word_1comp  ^(nw 0 s)``, fn s => ``Not               bx``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``w2n         ^(nw 0 s)``, fn s => ``Cast              bx Bit64``, BIL_OP_TAC)
+        , (fn s => (fst o strip_comb) ``(w2w ^(nw 0 s)):word64``, fn s => ``Cast bx Bit64``, BIL_OP_TAC)
         
         (* Some special operator *)
         , (fn s => (fst o strip_comb) ``word_msb    ^(nw 0 s)``, fn s => ``SignedLessThan bx ^(bil_expr_const (nw 0 s))``, BIL_OP_TAC)
@@ -953,6 +954,7 @@ fun tc_exp_arm8_prefix ae prefix =
                   orelse  (wordsSyntax.is_word_msb    ae)
                   orelse  (wordsSyntax.is_word_lsb    ae)
                   orelse  (wordsSyntax.is_w2n         ae)
+                  orelse  (wordsSyntax.is_w2w         ae)
           then
             let
               val mp = (GEN_ALL o DISCH_ALL) (MP_UN (select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1)) (tce o1))
@@ -1064,3 +1066,171 @@ arm8_step pat;
 val [t1] = arm8_step_hex "0x910003e1";  (* mov     x1, sp *)
 tc_exp_arm8_prefix ``s.PC + 4w`` "";
 tc_exp_arm8_prefix ``s.SP_EL0 + 0w`` "";
+
+(* From the manual  *)
+(* https://www.element14.com/community/servlet/JiveServlet/previewBody/41836-102-1-229511/ARM.Reference_Manual.pdf *)
+
+(* add 32-bit register  *)
+arm8_step_code `ADD W0, W1, W2`;
+tc_exp_arm8_prefix ``(w2w
+              ((w2w (s.REG (1w :word5)) :word32) +
+               (w2w (s.REG (2w :word5)) :word32)) :word64)`` "";
+(* FAILURE *)
+
+(* 64-bit addition *)
+arm8_step_code `ADD X0, X1, X2`;
+tc_exp_arm8_prefix `` s.REG 1w + s.REG 2w`` "";
+
+(* add 64-bit extending register  *)
+arm8_step_code `ADD X0, X1, W2, SXTW `;
+tc_exp_arm8_prefix `` s.REG 1w + ExtendValue (s.REG 2w,ExtendType_SXTW,0)`` "";
+(* FAILURE *)
+
+(* add 64-bit immediate  *)
+arm8_step_code `ADD X0, X1, #42 `;
+tc_exp_arm8_prefix ``s.REG 1w + 42w`` "";
+
+(* Absolute branch to address in Xn *)
+arm8_step_code `BR X0`;
+arm8_step_code `BLR X0`;
+
+tc_exp_arm8_prefix ``s.PC + 4w`` "";
+
+arm8_step_code `B #4`;
+
+
+(* Arithmetics instructions *)
+arm8_step_code `ADD W0, W1, W2, LSL #3`;
+(* still problems with 32 bits *)
+
+(* Guancio: my first extension *)
+arm8_step_code `SUB X0, X4, X3, ASR #2`;
+tc_exp_arm8_prefix ``s.REG 4w − s.REG 3w ≫ 2`` "";
+
+val ae = ``s.REG 3w ≫ 2``;
+tc_exp_arm8_prefix ae "";
+
+val (o1, o2, o3) = extract_operands ae;
+wordsSyntax.is_word_asr ae;
+(* val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1)) (tce o1) (tce o2)); *)
+val opH = ((fst o strip_comb) ae);
+val  size = (word_size o1);
+(select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1));
+
+val constr = fst (List.nth (List.filter (fn (_, s) => s = size) constructor_size_pairs, 0));
+
+val ae = ``s.REG 3w ≫ 2``;
+val t = prove(``2 = w2n (2w:word64)``, (FULL_SIMP_TAC (srw_ss()) []));
+val ae1 = (snd o dest_eq o concl) (REWRITE_CONV [Once t] ae);
+val ae2 = (snd o dest_eq o concl) (REWRITE_CONV [(GSYM wordsTheory.word_asr_bv_def)] ae1);
+
+val ae2 = (snd o dest_eq o concl) (REWRITE_CONV [Once t, (GSYM wordsTheory.word_asr_bv_def)] ae1);
+tc_exp_arm8_prefix ae2 "";
+
+val ae = ``s.REG 3w >>~ 2w``;
+tc_exp_arm8_prefix ae "";
+
+
+
+
+
+arm8_step_code `CMP W3, W4 `;
+arm8_step_code `CMP X3, X4 `;
+
+tc_exp_arm8_prefix ``((word_msb (s.REG 3w) ⇔ word_msb (¬s.REG 4w)) ∧
+               (word_msb (s.REG 3w) ⇎
+                BIT 63 (w2n (s.REG 3w) + w2n (¬s.REG 4w) + 1)))`` "";
+
+tc_exp_arm8_prefix ``
+((if
+                  w2n (s.REG 3w) + w2n (¬s.REG 4w) + 1 <
+                  18446744073709551616
+                then
+                  w2n (s.REG 3w) + w2n (¬s.REG 4w) + 1
+                else
+                  (w2n (s.REG 3w) + w2n (¬s.REG 4w) + 1) MOD
+                  18446744073709551616) ≠
+               w2n (s.REG 3w) + w2n (¬s.REG 4w) + 1)
+`` "";
+
+tc_exp_arm8_prefix ``(s.REG 3w − s.REG 4w = 0w)`` "";
+
+tc_exp_arm8_prefix ``word_msb (s.REG 3w − s.REG 4w)`` "";
+
+List.length bil_op_tms;
+
+arm8_step_code `BIC X0, X0, X1 `;
+tc_exp_arm8_prefix ``s.REG 0w && ¬s.REG 1w`` "";
+
+arm8_step_code `SUB X0, X4, X3`;
+tc_exp_arm8_prefix ``s.REG 4w − s.REG 3w`` "";
+
+arm8_step_code `SUBS X0, X4, X3`;
+
+tc_exp_arm8_prefix ``
+((word_msb (s.REG 4w) ⇔ word_msb (¬s.REG 3w)) ∧
+               (word_msb (s.REG 4w) ⇎
+                BIT 63 (w2n (s.REG 4w) + w2n (¬s.REG 3w) + 1)))`` "";
+
+
+arm8_step_code `CSINC X0, X1, X0, NE`;
+tc_exp_arm8_prefix ``
+if ¬s.PSTATE.Z then s.REG 1w else s.REG 0w + 1w
+`` "";
+
+(* UNSUPPORTED *)
+arm8_step_code `LDRB X0, [X1]`;
+arm8_step_code `LDRSB X0, [X1]`;
+
+tc_exp_arm8_prefix ``sw2sw (s.MEM (s.REG 1w + 0w))`` "";
+
+tc_exp_arm8_prefix ``(sw2sw (0w:word8)):word64`` "";
+
+tc_exp_arm8_prefix ``s.MEM (0w:word64)`` "";
+
+tc_exp_arm8_prefix ``(w2w (0w:word8)):word64`` "";
+
+tc_exp_arm8_prefix ``(w2n (0w:word8))`` "";
+
+(* cartesian product *)
+fun prod bints opTuples =
+    let
+        fun prod' lst1 lst2 res =
+            case lst1 of
+		[]          => res
+              | (br, s)::l1 => prod' l1 lst2 (List.concat [List.map (fn (f, b, tac) => (f s, b s, tac, br)) lst2, res])
+    in
+        prod' bints opTuples []
+    end;
+
+val uopTuples = [
+    (fn s => (fst o strip_comb) ``w2n         ^(nw 0 s)``, fn s => ``Cast              bx Bit64``, BIL_OP_TAC)
+];
+
+val v1 = (prod constructor_size_pairs uopTuples);
+
+    val goalgenerator_uop = fn (auop, bexp, tac, br) =>
+      let
+        val auopValue = bil_value ``(^auop x)``
+      in
+        (
+            auop, bexp, tac, br
+            , ``∀ env x bx. (bil_eval_exp bx env = Int (^br x)) ==> (bil_eval_exp ^bexp env = ^auopValue)``
+        )
+      end;
+
+map goalgenerator_uop v1;
+
+val uopTuples = [
+    (fn s => (fst o strip_comb) ``(w2w ^(nw 0 s)):word64``, fn s => ``Cast bx Bit64``, BIL_OP_TAC)
+];
+val v1 = (prod constructor_size_pairs uopTuples);
+
+val goals = map goalgenerator_uop v1;
+
+map (fn (abop, bop, tac, br, g) => (abop, bop, br, tryprove (g, tac))) goals;
+
+List.length bil_op_tms;
+
+
+arm8_step_code `LDR X0, [X1]`;
