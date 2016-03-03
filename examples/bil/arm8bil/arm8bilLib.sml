@@ -494,7 +494,8 @@ val BIL_OP_TAC = (
     THEN  WORD_DECIDE_TAC
   )
 );
-val BIL_DEN_TAC = (SRW_TAC [] [Once bil_eval_exp_def, bil_env_read_def, LET_DEF, r2s_def]);
+val BIL_DEN_TAC = (SRW_TAC [] [Once bil_eval_exp_def, bil_env_read_def, LET_DEF, r2s_def,
+			 bil_sizeof_reg_def, n2b_8_def, n2bs_def, bil_regtype_int_inf_def]);
 val BIL_NUMERAL_TAC = (
         (SIMP_TAC (srw_ss()) [Ntimes bil_eval_exp_def 2])
   THEN  BIL_OP_FULL_SIMP_TAC
@@ -598,6 +599,16 @@ val bil_plus_mod_2exp64_tm = tryprove(
                 )
         ) env = Int (n2b_64 ((n + m) MOD 2**64)))))``
   , BIL_PLUS_MOD_2EXP64_TAC
+);
+
+val memory_access_2exp64_tm = tryprove(
+    ``∀m env y x by bx .
+   ((bil_eval_exp by env = Mem Bit64 m) /\
+   (bil_eval_exp bx env = Int (Reg64 x))) ==>
+   (!a. (m (Reg64 a)) = (Reg8 (y a))) ==>
+   ((bil_eval_exp (Load by bx (Const (Reg1 1w)) Bit8) env) = (Int (Reg8 (y x))))``, (RW_TAC (srw_ss()) [])
+      THEN  BIL_DEN_TAC
+      THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def])
 );
 
 fun nw n s = wordsSyntax.mk_wordii(n, s);
@@ -978,6 +989,17 @@ fun tc_exp_arm8_prefix ae prefix =
             in
               (be, ae, mp)
             end
+	(* Memory access *)
+	else if is_mem ae then
+	    let
+	(* temporary lifter for memory. For now we do not support load from updated memory *)
+		val tce_o1 = (``(Den "MEM")``, ``y:word64 -> word8``,
+			      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [if (prefix = "") then ``"MEM"`` else ``APPEND ^(stringSyntax.fromMLstring prefix) "MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm)
+		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` memory_access_2exp64_tm) tce_o1 (tce o2));
+		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+	    in
+		(be, ae, mp)
+	    end
         else  raise UnsupportedARM8ExpressionException ae
       end;
     val (be, _, mp) = tce ae;

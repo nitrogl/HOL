@@ -975,7 +975,7 @@ fun tc_exp_arm8_prefix ae prefix =
                   orelse  (wordsSyntax.is_word_lsb    ae)
                   orelse  (wordsSyntax.is_w2n         ae)
                   orelse  (wordsSyntax.is_w2w         ae)
-                  orelse  (wordsSyntax.is_sw2sw         ae)
+                  orelse  (wordsSyntax.is_sw2sw       ae)
           then
             let
               val mp = (GEN_ALL o DISCH_ALL) (MP_UN (select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1)) (tce o1))
