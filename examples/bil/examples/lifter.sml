@@ -488,7 +488,8 @@ val BIL_OP_TAC = (
     THEN  WORD_DECIDE_TAC
   )
 );
-val BIL_DEN_TAC = (SRW_TAC [] [Once bil_eval_exp_def, bil_env_read_def, LET_DEF, r2s_def]);
+val BIL_DEN_TAC = (SRW_TAC [] [Once bil_eval_exp_def, bil_env_read_def, LET_DEF, r2s_def,
+			 bil_sizeof_reg_def, n2b_8_def, n2bs_def, bil_regtype_int_inf_def]);
 val BIL_NUMERAL_TAC = (
         (SIMP_TAC (srw_ss()) [Ntimes bil_eval_exp_def 2])
   THEN  BIL_OP_FULL_SIMP_TAC
@@ -592,6 +593,16 @@ val bil_plus_mod_2exp64_tm = tryprove(
                 )
         ) env = Int (n2b_64 ((n + m) MOD 2**64)))))``
   , BIL_PLUS_MOD_2EXP64_TAC
+);
+
+val memory_access_2exp64_tm = tryprove(
+    ``∀m env y x by bx .
+   ((bil_eval_exp by env = Mem Bit64 m) /\
+   (bil_eval_exp bx env = Int (Reg64 x))) ==>
+   (!a. (m (Reg64 a)) = (Reg8 (y a))) ==>
+   ((bil_eval_exp (Load by bx (Const (Reg1 1w)) Bit8) env) = (Int (Reg8 (y x))))``, (RW_TAC (srw_ss()) [])
+      THEN  BIL_DEN_TAC
+      THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def])
 );
 
 fun nw n s = wordsSyntax.mk_wordii(n, s);
@@ -972,6 +983,17 @@ fun tc_exp_arm8_prefix ae prefix =
             in
               (be, ae, mp)
             end
+	(* Memory access *)
+	else if is_mem ae then
+	    let
+	(* temporary lifter for memory. For now we do not support load from updated memory *)
+		val tce_o1 = (``(Den "MEM")``, ``y:word64 -> word8``,
+			      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [if (prefix = "") then ``"MEM"`` else ``APPEND ^(stringSyntax.fromMLstring prefix) "MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm)
+		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` memory_access_2exp64_tm) tce_o1 (tce o2));
+		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+	    in
+		(be, ae, mp)
+	    end
         else  raise UnsupportedARM8ExpressionException ae
       end;
     val (be, _, mp) = tce ae;
@@ -1278,4 +1300,78 @@ prove (``(((x :word32) <+ (0w :word32)) :bool) ==> ((((1w :32 word) @@ (0x7fffff
        blastLib.BBLAST_TAC);
 
 
+tc_exp_arm8_prefix ``(w2w (2w + 4w:word8)):word64 = 3w`` "";
+
+(* MEMORY LOAD *)
+
+val ae = ``s.MEM (0w:word64)``;
+val prefix = "";
+tc_exp_arm8_prefix ae "";
+
+is_mem ae;
+(
+ bil_a8e_den_prefix ae prefix
+, ae
+, 
+
+val (o1, o2, o3) = extract_operands ae;
+
+
+val tce_o2 = tce o2;
+val tce_o1 = (``(Den "MEM")``, ``y:word64 -> word8``,
+	      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [if (prefix = "") then ``"MEM"`` else ``APPEND ^(stringSyntax.fromMLstring prefix) "MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm);
+
+val thImp= prove(``∀m env y x by bx .
+   ((bil_eval_exp by env = Mem Bit64 m) /\
+   (bil_eval_exp bx env = Int (Reg64 x))) ==>
+   (!a. (m (Reg64 a)) = (Reg8 (y a))) ==>
+   ((bil_eval_exp (Load by bx (Const (Reg1 1w)) Bit8) env) = (Int (Reg8 (y x))))
+   ``,
+      (RW_TAC (srw_ss()) [])
+      THEN  BIL_DEN_TAC
+      THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def]));
+
+val (be1, ae1, thm1) = tce_o1;
+val (be2, ae2, thm2) = tce_o2;
+
+List.nth (bil_op_tms,1);
+
+(* val hyp1 = ((UNDISCH_ALL o SPEC_ALL) thm1); *)
+(* val hyp2 = ((UNDISCH_ALL o SPEC_ALL) thm2); *)
+
+(* This does not work anymore since we use conjunction. *)
+(* TODO, remove conjunction inthe hypothesis and puy implications *)
+(* val spec = (((SPECL [ae1, ae2, be1, be2]) o SPEC_ENV) (SPEC ``m:bil_int_t->bil_int_t`` thImp)); *)
+(* val res1 = (MP spec hyp1); *)
+(* val res2 = (MP res1 hyp2); *)
+
+MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` thImp) (be1, ae1, thm1) (be2, ae2, thm2);
+
+val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` thImp) tce_o1 tce_o2);
+
+val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+
+
+val ae = ``s.MEM (0w:word64)``;
+val prefix = "";
+tc_exp_arm8_prefix ae "";
+
+
+val ae = ``s.MEM ((s.REG 0w) + 0w:word64)``;
+val prefix = "";
+tc_exp_arm8_prefix ae "";
+
+
+
+val ae = ``s.REG (0w)``;
+val prefix = "";
+tc_exp_arm8_prefix ae "";
+
+
+
+
+List.nth(bil_op_tms, 0);
+
+
+(* LOAD OF A WORLD *)
 arm8_step_code `LDR X0, [X1]`;

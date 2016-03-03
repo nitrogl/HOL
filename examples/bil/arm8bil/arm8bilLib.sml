@@ -249,12 +249,12 @@ val arm8_supported_den = fn a8s => [
   ``, ``^(a8s).PSTATE.V
   ``, ``^(a8s).PSTATE.Z
       
-  ``(*, ``^(a8s).SP_EL0
+  ``, ``^(a8s).SP_EL0
   ``, ``^(a8s).SP_EL1
   ``, ``^(a8s).SP_EL2
   ``, ``^(a8s).SP_EL3
       
-  ``, ``^(a8s).TCR_EL1.TBI0
+  ``(*, ``^(a8s).TCR_EL1.TBI0
   ``, ``^(a8s).TCR_EL1.TBI1
   ``, ``^(a8s).TCR_EL1.tcr_el1'rst
       
