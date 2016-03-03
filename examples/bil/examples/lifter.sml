@@ -625,7 +625,15 @@ val bil_op_tms =
         , (fn s => (fst o strip_comb) ``word_1comp  ^(nw 0 s)``, fn s => ``Not               bx``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``w2n         ^(nw 0 s)``, fn s => ``Cast              bx Bit64``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``(w2w ^(nw 0 s)):word64``, fn s => ``Cast bx Bit64``, BIL_OP_TAC)
-	, (fn s => (fst o strip_comb) ``(sw2sw ^(nw 0 s)):word64``, fn s => ``SignedCast bx Bit64``, BIL_OP_TAC)
+	, (fn s => (fst o strip_comb) ``(sw2sw ^(nw 0 s)):word64``, fn s => ``SignedCast bx Bit64``, (
+	   (RW_TAC (srw_ss()) [])
+           THEN  (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def])
+	   THEN  (RW_TAC (arith_ss) [])
+	   THEN BIL_OP_FULL_SIMP_TAC
+	   THEN  blastLib.BBLAST_TAC
+	   THEN  EVAL_TAC
+	   THEN  WORD_DECIDE_TAC
+	  ))
         
         (* Some special operator *)
         , (fn s => (fst o strip_comb) ``word_msb    ^(nw 0 s)``, fn s => ``SignedLessThan bx ^(bil_expr_const (nw 0 s))``, BIL_OP_TAC)
@@ -956,6 +964,7 @@ fun tc_exp_arm8_prefix ae prefix =
                   orelse  (wordsSyntax.is_word_lsb    ae)
                   orelse  (wordsSyntax.is_w2n         ae)
                   orelse  (wordsSyntax.is_w2w         ae)
+                  orelse  (wordsSyntax.is_sw2sw         ae)
           then
             let
               val mp = (GEN_ALL o DISCH_ALL) (MP_UN (select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1)) (tce o1))
@@ -1228,7 +1237,15 @@ map (fn (abop, bop, tac, br, g) => (abop, bop, br, tryprove (g, tac))) goals;
 tc_exp_arm8_prefix ``(sw2sw (0w:word8)):word64`` "";
 
 val uopTuples = [
-    (fn s => (fst o strip_comb) ``(sw2sw ^(nw 0 s)):word64``, fn s => ``SignedCast bx Bit64``, BIL_OP_TAC)
+    (fn s => (fst o strip_comb) ``(sw2sw ^(nw 0 s)):word64``, fn s => ``SignedCast bx Bit64``, 
+      ((RW_TAC (srw_ss()) [])
+      THEN  (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def])
+      THEN  (RW_TAC (arith_ss) [])
+      THEN  BIL_OP_FULL_SIMP_TAC
+      THEN  blastLib.BBLAST_TAC
+      THEN  EVAL_TAC
+      THEN  WORD_DECIDE_TAC)
+)
 ];
 val v1 = (prod constructor_size_pairs uopTuples);
 
@@ -1236,7 +1253,8 @@ val goals = map goalgenerator_uop v1;
 
 map (fn (abop, bop, tac, br, g) => (abop, bop, br, tryprove (g, tac))) goals;
 
-val (abop, bop, tac, br, g1) = List.nth(goals,1);
+val (abop, bop, tac, br, g1) = List.nth(goals,4);
+
 prove(``^g1``,
       (RW_TAC (srw_ss()) [])
       THEN  (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def])
@@ -1246,6 +1264,11 @@ prove(``^g1``,
       THEN  EVAL_TAC
       THEN  WORD_DECIDE_TAC
   )
+
+0xFFFFFFFFFFFFFFw
+0xFFFFFFFFFFFFFFFFw
+0xFFFFFFFFFFFFFFw
+0xFFFFFFFFFFFFFFFFw
 
 (FULL_SIMP_TAC (pure_ss) [bil_scast_def])
 (FULL_SIMP_TAC (srw_ss()) [])
