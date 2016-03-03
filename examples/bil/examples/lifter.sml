@@ -132,8 +132,6 @@ arm8_step_code `LDRB X0, [X1]`;
 arm8_step_code `LDRSB X0, [X1]`;
 
 tc_exp_arm8 ``sw2sw (s.MEM (s.REG 1w + 0w)):word64``;
-(* PROBLEM  *)
-
 tc_exp_arm8 ``(w2w (0w:word8)):word64``;
 tc_exp_arm8 ``(w2n (0w:word8))``;
 tc_exp_arm8 ``(sw2sw (0w:word8)):word64``;
@@ -141,6 +139,9 @@ tc_exp_arm8 ``s.MEM (0w:word64)``;
 tc_exp_arm8 ``s.MEM (s.REG 1w + 0w)``;
 
 tc_exp_arm8 ``s.MEM (0w:word64) + 2w``;
+(* NO THEOREM WORKS IN 8bit? *)
+
+tc_exp_arm8 ``s.MEM (0w:word64) + (if (s.REG 1w) = 1w then 0w else 1w)``;
 
 (* LOAD OF A WORLD *)
 arm8_step_code `LDR X0, [X1]`;
