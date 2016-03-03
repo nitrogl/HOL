@@ -611,6 +611,29 @@ val memory_access_2exp64_tm = tryprove(
       THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def])
 );
 
+val mem_dword_2exp64_tm = tryprove(
+    ``∀m env y x by bx .
+   ((bil_eval_exp by env = Mem Bit64 m) /\
+   (bil_eval_exp bx env = Int (Reg64 x))) ==>
+   (!a. (m (Reg64 a)) = (Reg8 (y a))) ==>
+   ((bil_eval_exp (Load by bx (Const (Reg1 0w)) Bit64) env) = (Int (Reg64 (mem_dword y x))))``,
+    (RW_TAC (srw_ss()) [])
+      THEN (BIL_DEN_TAC)
+      (* the memory access get stuck since we do not know the value of the endianness *)
+      THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def, n2b_1_def, n2bs_def])
+      (* we first open the cast *)
+      THEN (SIMP_TAC (srw_ss()) [bil_cast_def])
+      (* We apply the + definition so we can show that the memory accesses yield always a byte *)
+      THEN (SIMP_TAC (srw_ss()) [bil_add_def])
+      THEN (FULL_SIMP_TAC (srw_ss()) [])
+      (* we first open the shift *)
+      THEN (SIMP_TAC (srw_ss()) [bil_lsl_def, n2b_64_def, n2bs_def])
+      (* we first open the or *)
+      THEN (SIMP_TAC (srw_ss()) [bil_or_def])
+      THEN (SIMP_TAC (srw_ss()) [mem_dword_def])
+      THEN (blastLib.BBLAST_TAC)
+);
+
 fun nw n s = wordsSyntax.mk_wordii(n, s);
 
 (* Generic theorems for binary expressions *)
@@ -839,6 +862,9 @@ fun extract_operands t =
   else (``F``, ``F``, ``F``)
 ;
 
+fun extract_fun t =
+    if not (is_comb t) then ``T``
+    else fst (strip_comb t);
 
 (* Transcompiler arm8 expressions to BIL model expressions *)
 fun tc_exp_arm8_prefix ae prefix =
@@ -846,6 +872,7 @@ fun tc_exp_arm8_prefix ae prefix =
     fun tce ae =
       let
         val (o1, o2, o3) = extract_operands ae;
+	val f0 = extract_fun ae;
       in
               if (wordsSyntax.is_n2w ae) then (
                       bil_expr_const ae
@@ -996,6 +1023,16 @@ fun tc_exp_arm8_prefix ae prefix =
 		val tce_o1 = (``(Den "MEM")``, ``^o1.MEM``,
 			      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [if (prefix = "") then ``"MEM"`` else ``APPEND ^(stringSyntax.fromMLstring prefix) "MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm)
 		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` memory_access_2exp64_tm) tce_o1 (tce o2));
+		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+	    in
+		(be, ae, mp)
+	    end
+	(* Memory access dword based *)
+	else if (f0 = ``mem_dword``) then
+	    let
+		val tce_o1 = (``(Den "MEM")``, o1,
+			      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [if (prefix = "") then ``"MEM"`` else ``APPEND ^(stringSyntax.fromMLstring prefix) "MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm);
+		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` mem_dword_2exp64_tm) tce_o1 (tce o2));
 		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
 	    in
 		(be, ae, mp)
