@@ -509,12 +509,12 @@ val bil_scast_def = Define `bil_scast a t = case (a, t) of
   | (Reg1  w), Bit16 => Reg16 ((w @@ (0w:bool[14])):bool[15] @@ w)
   | (Reg1  w), Bit32 => Reg32 ((w @@ (0w:bool[30])):bool[31] @@ w)
   | (Reg1  w), Bit64 => Reg64 ((w @@ (0w:bool[62])):bool[63] @@ w)
-  | (Reg8  w), Bit16 => Reg16 ((if (word_msb w) then (1w:bool[8]) else  (0w:bool[8]) ) @@ (0x7w && w))
-  | (Reg8  w), Bit32 => Reg32 ((if (word_msb w) then (1w:bool[24]) else (0w:bool[24])) @@ (0x7w && w))
-  | (Reg8  w), Bit64 => Reg64 ((if (word_msb w) then (1w:bool[56]) else (0w:bool[56])) @@ (0x7w && w))
-  | (Reg16 w), Bit32 => Reg32 ((if (word_msb w) then (1w:bool[16]) else (0w:bool[16])) @@ (0x7Fw && w))
-  | (Reg16 w), Bit64 => Reg64 ((if (word_msb w) then (1w:bool[48]) else (0w:bool[48])) @@ (0x7Fw && w))
-  | (Reg32 w), Bit64 => Reg64 ((if (word_msb w) then (1w:bool[32]) else (0w:bool[32])) @@ (0x7FFFw && w))
+  | (Reg8  w), Bit16 => Reg16 ((if (word_msb w) then (0xFFw:bool[8]) else  (0w:bool[8]) ) @@ w)
+  | (Reg8  w), Bit32 => Reg32 ((if (word_msb w) then (0xFFFFFFw:bool[24]) else (0w:bool[24])) @@ w)
+  | (Reg8  w), Bit64 => Reg64 ((if (word_msb w) then (0xFFFFFFFFFFFFFFw:bool[56]) else (0w:bool[56])) @@ w)
+  | (Reg16 w), Bit32 => Reg32 ((if (word_msb w) then (0xFFFFw:bool[16]) else (0w:bool[16])) @@ w)
+  | (Reg16 w), Bit64 => Reg64 ((if (word_msb w) then (0xFFFFFFFFFFFFw:bool[48]) else (0w:bool[48])) @@ w)
+  | (Reg32 w), Bit64 => Reg64 ((if (word_msb w) then (0xFFFFFFFFw:bool[32]) else (0w:bool[32])) @@ w)
 `;
 
 val bil_hcast_def = Define `bil_hcast a t = case (a, t) of

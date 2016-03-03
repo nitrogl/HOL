@@ -625,6 +625,7 @@ val bil_op_tms =
         , (fn s => (fst o strip_comb) ``word_1comp  ^(nw 0 s)``, fn s => ``Not               bx``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``w2n         ^(nw 0 s)``, fn s => ``Cast              bx Bit64``, BIL_OP_TAC)
         , (fn s => (fst o strip_comb) ``(w2w ^(nw 0 s)):word64``, fn s => ``Cast bx Bit64``, BIL_OP_TAC)
+	, (fn s => (fst o strip_comb) ``(sw2sw ^(nw 0 s)):word64``, fn s => ``SignedCast bx Bit64``, BIL_OP_TAC)
         
         (* Some special operator *)
         , (fn s => (fst o strip_comb) ``word_msb    ^(nw 0 s)``, fn s => ``SignedLessThan bx ^(bil_expr_const (nw 0 s))``, BIL_OP_TAC)
@@ -1237,26 +1238,18 @@ map (fn (abop, bop, tac, br, g) => (abop, bop, br, tryprove (g, tac))) goals;
 
 val (abop, bop, tac, br, g1) = List.nth(goals,1);
 prove(``^g1``,
-      BIL_OP_FULL_SIMP_TAC
-      THEN (
-           (RW_TAC (srw_ss()) [])
-	   THEN  (SIMP_TAC (arith_ss) [Once bil_eval_exp_def])
-	   THEN  (RW_TAC (arith_ss) [])
-      )
-      THEN  (
-          (RW_TAC (srw_ss()) [])
-	  THEN  (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def])
-	  THEN  BIL_OP_FULL_SIMP_TAC
-	  THEN  EVAL_TAC
-      )
-      THEN  (
-          (RW_TAC (srw_ss()) [])
-    THEN  (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def])
-    THEN  BIL_OP_FULL_SIMP_TAC
-    THEN  blastLib.BBLAST_TAC
-    THEN  EVAL_TAC
-    THEN  WORD_DECIDE_TAC
+      (RW_TAC (srw_ss()) [])
+      THEN  (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def])
+      THEN  (RW_TAC (arith_ss) [])
+      THEN BIL_OP_FULL_SIMP_TAC
+      THEN  blastLib.BBLAST_TAC
+      THEN  EVAL_TAC
+      THEN  WORD_DECIDE_TAC
   )
+
+(FULL_SIMP_TAC (pure_ss) [bil_scast_def])
+(FULL_SIMP_TAC (srw_ss()) [])
+(FULL_SIMP_TAC (pure_ss) [wordsTheory.word_msb_def])
 
 prove (``(((x :word32) <+ (0w :word32)) :bool) ==> ((((1w :32 word) @@ (0x7fffffffw && x :word32)) :word64) = (sw2sw x :word64))``,
        blastLib.BBLAST_TAC);
