@@ -147,22 +147,14 @@ tc_exp_arm8 ``s.MEM (0w:word64) + (if (s.REG 1w) = 1w then 0w else 1w)``;
 arm8_step_code `LDR X0, [X1]`;
 
 tc_exp_arm8 ``mem_dword s.MEM (s.REG 1w + 0w)``;
-val ae = ``mem_dword s.MEM (s.REG 1w + 0w)``;
-val ae1 = (snd o dest_eq o concl)(REWRITE_CONV [mem_dword_def] ae);
-tc_exp_arm8 ae1;
+tc_exp_arm8 ``(mem_dword s.MEM (s.REG 1w + 0w)) + (s.REG 2w)``;
+
+arm8_step_code `ADD W0, W1, W2`;
+tc_exp_arm8 ``(w2w
+              ((w2w (s.REG (1w :word5)) :word32) +
+               (w2w (s.REG (2w :word5)) :word32)) :word64)``;
+
+tc_exp_arm8 ``(w2w ((5w :word32) + (5w :word32)) :word64)``;
 
 
-
-val (o1, o2, o3) = extract_operands ae;
-val f0 = extract_fun ae;
-f0 == ``mem_dword``;
-	(* temporary lifter for memory. For now we do not support load from updated memory *)
-val tce_o1 = (``(Den "MEM")``, o1,
-	      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [if (prefix = "") then ``"MEM"`` else ``APPEND ^(stringSyntax.fromMLstring prefix) "MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm);
-
-val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` mem_dword_2exp64_tm) tce_o1 (tce o2));
-val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
-	    in
-		(be, ae, mp)
-	    end
 

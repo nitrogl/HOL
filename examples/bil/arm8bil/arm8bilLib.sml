@@ -1344,6 +1344,10 @@ fun tc_stmt_arm8_hex instr =
   end
 ;
 
+
+(* after this we do not have certification of step *)
+
+
 fun tc_stmt_arm8_hexlist instrlst =
   let
     fun tci ilist idx res = 
