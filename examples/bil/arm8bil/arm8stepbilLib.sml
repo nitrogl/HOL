@@ -244,7 +244,7 @@ fun bil_full_backup_arm8_vars_tmp bs =
 
 fun bil_backup_arm8_vars_tmp bs bklst =
   let
-    val a8s = ``a8s:arm8_state``;
+    val a8s = ``s:arm8_state``;
     val removeme = ``rmme:bool``;
     val gen_assign_tmp = 
       List.map (fn t => 
@@ -253,14 +253,13 @@ fun bil_backup_arm8_vars_tmp bs bklst =
                 val strdst = eval (bil_a8e2HOLstring_prefix t "tmp_");
               in
                 if (List.exists (fn x => x = stringSyntax.fromHOLstring strsrc) bklst)
-                  then  ``Assign ^strdst (Den ^strsrc)``
-                  else  removeme
+                  then  (``Assign ^strdst (Den ^strsrc)``, SIMP_RULE (srw_ss()) [r2s_def] (#3(tc_exp_arm8 t)))
+                  else  (removeme, ASSUME ``T``)
               end
           ) (arm8_supported_fields a8s);
-    val gen_assign_tmp_ch = (List.filter (fn x => not (x = removeme)) gen_assign_tmp);
-    val assign_tmp = (List.foldl (fn (a,b) => ``[^a] ++ ^b``) ``[]:bil_stmt_t list`` gen_assign_tmp_ch);
+    val gen_assign_tmp_ch = (List.filter (fn (x,y) => not (x = removeme)) gen_assign_tmp);
   in
-    assign_tmp
+    ListPair.unzip gen_assign_tmp_ch
   end
 ;
 
@@ -341,10 +340,10 @@ fun tc_stmt_arm8_hex instr =
                 end
               ) a8sch;
             val (assign, certs) = list_split certify_assignments;
-            val cp_tmp = bil_backup_arm8_vars_tmp ``bs:stepstate`` (supported_accesses a8sch);
-            val stmts = eval (List.foldl (fn (a,b) => ``[^a] ++ ^b``) ``[]:bil_stmt_t list`` assign);
+	    val (tmp_assign, tmp_certs) = bil_backup_arm8_vars_tmp ``bs:stepstate`` (supported_accesses a8sch);
+            val stmts = eval (List.foldl (fn (a,b) => ``^b ++ [^a]``) ``[]:bil_stmt_t list`` (List.concat [tmp_assign, assign]));
           in
-            (eval ``^cp_tmp ++ ^stmts``, certs, arm8thl)
+            (eval stmts, List.concat [tmp_certs, certs], arm8thl)
           end
       | _    => (``[]``, [], [])
   end

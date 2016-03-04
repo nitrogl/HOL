@@ -271,17 +271,82 @@ fun ABBREV_NEW_ENV n (asl, g) =
 	   (Q.ABBREV_TAC `^var_name=^nenv`) (asl,g)
     end;
 
-fun PROCESS_ONE_ASSIGNMENT n =
+fun PROCESS_ONE_ASSIGNMENT certs n =
     let val var_name = mk_var(concat["env", Int.toString n], ``:environment``)
+	val th1 = SPEC ``^var_name`` (List.nth (certs, n-1))
+	val th2 = if is_forall (concl th1) then SPEC ``s:arm8_state`` th1 else th1
     in
 	(ABBREV_NEW_ENV n)
 	THEN (FULL_SIMP_TAC (srw_ss()) [Once bil_exec_step_n_def])
 	THEN (computeLib.RESTR_EVAL_TAC [``bil_eval_exp``, ``bil_exec_step_n``])
 	THEN (FULL_SIMP_TAC (srw_ss()) [])
-	THEN (ASSUME_TAC (SPECL [``^var_name``, ``s:arm8_state``] (List.nth (certs, n-1))))
+	THEN (ASSUME_TAC th2)
 	THEN (REV_FULL_SIMP_TAC (srw_ss()) [Abbr `^var_name`])
 	THEN (FULL_SIMP_TAC (srw_ss()) [combinTheory.UPDATE_def])
 	THEN (computeLib.RESTR_EVAL_TAC [``bil_eval_exp``, ``bil_exec_step_n``])
     end;
 
 fun tc_one_instruction inst = 
+    let val code = arm8AssemblerLib.arm8_code inst;
+	val instr = (hd code);
+	val (p, certs, [step]) = tc_stmt_arm8_hex instr;
+        val prog = ``
+        (^(list_mk_conj (hyp step))) ==>
+        (
+         (env "" = (NoType,Unknown)) /\
+         ((env "R0") = (Reg Bit64, Int (Reg64 (s.REG 0w)))) /\
+         ((env "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s.PC)))) /\
+         (?v.((env "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((env "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v)))))
+        ) ==>
+        (NextStateARM8 s = SOME s1) ==>
+        (bil_exec_step_n <|
+          pco:= SOME <| label:= (Label "main"); index:= 0 |>;
+          environ:= env ;
+          termcode:= Unknown ;
+          debug:=d1;
+          execs:=e1;
+          pi:=[<| label:= Label "main";
+                  statements:= ^p|>]
+          |> ^((numSyntax.term_of_int o List.length) certs) = bs1) ==>
+        (
+         (bs1.environ "" = (NoType,Unknown)) /\
+         ((bs1.environ "R0") = (Reg Bit64, Int (Reg64 (s1.REG 0w)))) /\
+         ((bs1.environ "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s1.PC)))) /\
+         (?v.((bs1.environ "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((bs1.environ "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v)))))
+        )``;
+	val thm = prove(``^prog``,
+			(DISCH_TAC) THEN (DISCH_TAC) THEN (DISCH_TAC)
+		        THEN (FULL_SIMP_TAC (srw_ss()) [])
+			(* for every instruction *)
+			THEN (MAP_EVERY (PROCESS_ONE_ASSIGNMENT certs) (List.tabulate (List.length certs, fn x => x+1)))
+			(* Computation completed *)
+			THEN (FULL_SIMP_TAC (srw_ss()) [Once bil_exec_step_n_def])
+			THEN DISCH_TAC
+			(* use the step theorem *)
+			THEN (ASSUME_TAC step)
+			THEN (FULL_SIMP_TAC (srw_ss()) [])
+			THEN (RW_TAC (srw_ss()) [combinTheory.UPDATE_def])
+		       );
+    in
+	thm
+    end;
+
+val inst = `MOV X0, #1`;
+tc_one_instruction `MOV X0, #1`;
+tc_one_instruction `MOV X0, #2`;
+tc_one_instruction `ADD X0, X0, X0`;
+
+arm8_step_code `ADD X0, X0, X0`;
+
+
+val inst = `ADD X0, X0, X0`;
+
+val th::[] =arm8thl;
+
+(PROCESS_ONE_ASSIGNMENT certs 1)
+(PROCESS_ONE_ASSIGNMENT certs 2)
+(PROCESS_ONE_ASSIGNMENT certs 3)
+val n = 3;
+(PROCESS_ONE_ASSIGNMENT certs 3)
