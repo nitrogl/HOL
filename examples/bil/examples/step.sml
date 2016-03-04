@@ -343,6 +343,10 @@ tc_one_instruction `MOV X0, #2`;
 tc_one_instruction `ADD X0, X0, X0`;
 tc_one_instruction `MOV X1, #1`;
 tc_one_instruction `MOV X0, X1`;
+tc_one_instruction `ADD X1, X1, X0`;
+tc_one_instruction `ADD X0, X1, #42 `;
+
+tc_one_instruction `BR X0`;
 
 
 val inst = `ADD X0, X0, X0`;
