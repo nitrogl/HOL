@@ -295,8 +295,10 @@ fun tc_one_instruction inst =
         (
          (env "" = (NoType,Unknown)) /\
          ((env "R0") = (Reg Bit64, Int (Reg64 (s.REG 0w)))) /\
+         ((env "R1") = (Reg Bit64, Int (Reg64 (s.REG 1w)))) /\
          ((env "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s.PC)))) /\
          (?v.((env "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((env "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v)))))
         ) ==>
         (NextStateARM8 s = SOME s1) ==>
@@ -312,8 +314,10 @@ fun tc_one_instruction inst =
         (
          (bs1.environ "" = (NoType,Unknown)) /\
          ((bs1.environ "R0") = (Reg Bit64, Int (Reg64 (s1.REG 0w)))) /\
+         ((bs1.environ "R1") = (Reg Bit64, Int (Reg64 (s1.REG 1w)))) /\
          ((bs1.environ "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s1.PC)))) /\
          (?v.((bs1.environ "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((bs1.environ "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v)))))
         )``;
 	val thm = prove(``^prog``,
@@ -337,8 +341,8 @@ val inst = `MOV X0, #1`;
 tc_one_instruction `MOV X0, #1`;
 tc_one_instruction `MOV X0, #2`;
 tc_one_instruction `ADD X0, X0, X0`;
-
-arm8_step_code `ADD X0, X0, X0`;
+tc_one_instruction `MOV X1, #1`;
+tc_one_instruction `MOV X0, X1`;
 
 
 val inst = `ADD X0, X0, X0`;
