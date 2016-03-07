@@ -866,6 +866,20 @@ fun extract_fun t =
     if not (is_comb t) then ``T``
     else fst (strip_comb t);
 
+(* Function that apply a conversion if it does not fail *)
+fun tryconv  f t = (f t)
+    handle HOL_ERR {message: string, origin_function: string, origin_structure: string} => t
+;
+
+(* Theorem to simplifying boolean cast *)
+val bool_cast_simpl_tm = prove (``!e.(case if e then Reg1 (1w :word1) else Reg1 (0w :word1)
+       of Reg1 v11 => Reg Bit1
+        | Reg8 v12 => Reg Bit8
+        | Reg16 v13 => Reg Bit16
+        | Reg32 v14 => Reg Bit32
+        | Reg64 v15 => Reg Bit64) = Reg Bit1``,
+       (RW_TAC (srw_ss()) []));
+
 (* Transcompiler arm8 expressions to BIL model expressions *)
 fun tc_exp_arm8_prefix ae prefix =
   let
@@ -894,15 +908,20 @@ fun tc_exp_arm8_prefix ae prefix =
                     , ae
                     , (GEN_ENV o GENL [``s:arm8_state``, ``w:word5``] o SPECL [if (prefix = "") then ``r2s ^((snd o dest_comb) ae)`` else ``APPEND ^(stringSyntax.fromMLstring prefix) (r2s ^((snd o dest_comb) ae))``, ``Reg Bit64``, ``Int (Reg64 ^ae)``] o SPEC_ENV) arm8_to_bil_den_tm
                   )
-        else  if  (is_arm8_den ae) then (
+        else  if  (is_arm8_den ae) then
+	    let val ex_term = eval ``bil_type_val_int_inf ^(bil_value ae)``
+		val simp_bool_cast_term = tryconv (snd o dest_eq o concl o (SIMP_CONV (srw_ss()) [bool_cast_simpl_tm])) ex_term
+	    in
+	    (
                       bil_a8e_den_prefix ae prefix
                     , ae
                     , (GEN_ENV o GEN ``s:arm8_state`` o SPECL [
                           bil_a8e2HOLstring_prefix ae prefix
-                        , eval ``bil_type_val_int_inf ^(bil_value ae)``
+                        , simp_bool_cast_term
                         , ``^(bil_value ae)``
                       ] o SPEC_ENV) arm8_to_bil_den_tm
                   )
+	    end
         else  if  (is_plus_lt_2exp64 ae)
           then
             let
