@@ -290,15 +290,18 @@ fun tc_one_instruction inst =
     let val code = arm8AssemblerLib.arm8_code inst;
 	val instr = (hd code);
 	val (p, certs, [step]) = tc_stmt_arm8_hex instr;
+
         val prog = ``
         (^(list_mk_conj (hyp step))) ==>
         (
          (env "" = (NoType,Unknown)) /\
          ((env "R0") = (Reg Bit64, Int (Reg64 (s.REG 0w)))) /\
          ((env "R1") = (Reg Bit64, Int (Reg64 (s.REG 1w)))) /\
+         ((env "R30") = (Reg Bit64, Int (Reg64 (s.REG 30w)))) /\
          ((env "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s.PC)))) /\
          (?v.((env "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((env "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v)))))
         ) ==>
         (NextStateARM8 s = SOME s1) ==>
@@ -315,11 +318,14 @@ fun tc_one_instruction inst =
          (bs1.environ "" = (NoType,Unknown)) /\
          ((bs1.environ "R0") = (Reg Bit64, Int (Reg64 (s1.REG 0w)))) /\
          ((bs1.environ "R1") = (Reg Bit64, Int (Reg64 (s1.REG 1w)))) /\
+         ((bs1.environ "R30") = (Reg Bit64, Int (Reg64 (s1.REG 30w)))) /\
          ((bs1.environ "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s1.PC)))) /\
          (?v.((bs1.environ "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((bs1.environ "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v)))))
         )``;
+
 	val thm = prove(``^prog``,
 			(DISCH_TAC) THEN (DISCH_TAC) THEN (DISCH_TAC)
 		        THEN (FULL_SIMP_TAC (srw_ss()) [])
@@ -347,6 +353,21 @@ tc_one_instruction `ADD X1, X1, X0`;
 tc_one_instruction `ADD X0, X1, #42 `;
 
 tc_one_instruction `BR X0`;
+tc_one_instruction `BLR X0`;
+
+
+val inst = `BLR X0`;
+(PROCESS_ONE_ASSIGNMENT certs 1)
+(PROCESS_ONE_ASSIGNMENT certs 2)
+(PROCESS_ONE_ASSIGNMENT certs 3)
+(PROCESS_ONE_ASSIGNMENT certs 4)
+(PROCESS_ONE_ASSIGNMENT certs 5)
+
+
+
+
+
+
 
 
 val inst = `ADD X0, X0, X0`;
