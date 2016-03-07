@@ -1,8 +1,10 @@
 structure arm8stepbilLib :> arm8stepLib =
 struct
 
+open bilTheory;
 open proofTools;
 open arm8bilLib;
+open arm8_stepLib;
 
 (* ------------------------------------------------------------------------- *)
 
@@ -336,7 +338,7 @@ fun tc_stmt_arm8_hex instr =
                   val (bexp, _, thm)  = tc_exp_arm8_prefix a8e "tmp_";
                   val str = stringSyntax.fromMLstring (s);
                 in
-                  (``Assign ^str ^bexp``, thm)
+                  (``Assign ^str ^bexp``, (SIMP_RULE (srw_ss()) [r2s_def] thm))
                 end
               ) a8sch;
             val (assign, certs) = list_split certify_assignments;
