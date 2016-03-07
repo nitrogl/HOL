@@ -868,7 +868,7 @@ fun extract_fun t =
 
 (* Function that apply a conversion if it does not fail *)
 fun tryconv  f t = (f t)
-    handle HOL_ERR {message: string, origin_function: string, origin_structure: string} => t
+    handle UNCHANGED => t
 ;
 
 (* Theorem to simplifying boolean cast *)
