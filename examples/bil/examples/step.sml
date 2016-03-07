@@ -260,16 +260,35 @@ prove(``^prog``,
 (* INSTRUCTION LIFTER *)
 (* **************************************** *)
 
-
+(* To use a normal form, we prefer to express casts as bool2b x *)
+(* instead of if x then v1 else v2 *)
 fun ABBREV_NEW_ENV n (asl, g) =
     let val var_name = mk_var(concat["env", Int.toString n], ``:environment``)
 	val (x,_) = dest_imp g
 	val (s,_) = dest_eq x
 	val (f, [s,n]) = strip_comb s
-	val nenv = (snd o dest_eq o concl o EVAL) ``^s.environ``
+	val nenv = (snd o dest_eq o concl o (computeLib.RESTR_EVAL_CONV [``bool2b``])) ``^s.environ``
        in
 	   (Q.ABBREV_TAC `^var_name=^nenv`) (asl,g)
     end;
+
+(* Theorem to simplifying boolean cast *)
+val bool_cast_simpl_tm = prove (``!e.(case if e then Reg1 (1w :word1) else Reg1 (0w :word1)
+       of Reg1 v11 => Reg Bit1
+        | Reg8 v12 => Reg Bit8
+        | Reg16 v13 => Reg Bit16
+        | Reg32 v14 => Reg Bit32
+        | Reg64 v15 => Reg Bit64) = Reg Bit1``,
+       (RW_TAC (srw_ss()) []));
+(* Theorem to simplifying boolean cast *)
+val bool_cast_simpl2_tm = prove (``!e.(case bool2b e
+       of Reg1 v11 => Reg Bit1
+        | Reg8 v12 => Reg Bit8
+        | Reg16 v13 => Reg Bit16
+        | Reg32 v14 => Reg Bit32
+        | Reg64 v15 => Reg Bit64) = Reg Bit1``,
+       (RW_TAC (srw_ss()) [bool2b_def]));
+
 
 fun PROCESS_ONE_ASSIGNMENT certs n =
     let val var_name = mk_var(concat["env", Int.toString n], ``:environment``)
@@ -282,8 +301,11 @@ fun PROCESS_ONE_ASSIGNMENT certs n =
 	THEN (FULL_SIMP_TAC (srw_ss()) [])
 	THEN (ASSUME_TAC th2)
 	THEN (REV_FULL_SIMP_TAC (srw_ss()) [Abbr `^var_name`])
+	(* bool type simplification *)
+	THEN (FULL_SIMP_TAC (srw_ss()) [bool_cast_simpl2_tm])
 	THEN (FULL_SIMP_TAC (srw_ss()) [combinTheory.UPDATE_def])
-	THEN (computeLib.RESTR_EVAL_TAC [``bil_eval_exp``, ``bil_exec_step_n``])
+	THEN (computeLib.RESTR_EVAL_TAC [``bil_eval_exp``, ``bil_exec_step_n``, ``bool2b``])
+	THEN (FULL_SIMP_TAC (srw_ss()) [bool_cast_simpl2_tm])
     end;
 
 fun tc_one_instruction inst = 
@@ -298,10 +320,12 @@ fun tc_one_instruction inst =
          ((env "R0") = (Reg Bit64, Int (Reg64 (s.REG 0w)))) /\
          ((env "R1") = (Reg Bit64, Int (Reg64 (s.REG 1w)))) /\
          ((env "R30") = (Reg Bit64, Int (Reg64 (s.REG 30w)))) /\
+         ((env "ProcState_Z") = (Reg Bit1, Int (bool2b s.PSTATE.Z))) /\
          ((env "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s.PC)))) /\
          (?v.((env "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((env "tmp_ProcState_Z") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((env "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v)))))
         ) ==>
         (NextStateARM8 s = SOME s1) ==>
@@ -319,10 +343,12 @@ fun tc_one_instruction inst =
          ((bs1.environ "R0") = (Reg Bit64, Int (Reg64 (s1.REG 0w)))) /\
          ((bs1.environ "R1") = (Reg Bit64, Int (Reg64 (s1.REG 1w)))) /\
          ((bs1.environ "R30") = (Reg Bit64, Int (Reg64 (s1.REG 30w)))) /\
+         ((bs1.environ "ProcState_Z") = (Reg Bit1, Int (bool2b s1.PSTATE.Z))) /\
          ((bs1.environ "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s1.PC)))) /\
          (?v.((bs1.environ "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((bs1.environ "tmp_ProcState_Z") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((bs1.environ "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v)))))
         )``;
 
@@ -337,7 +363,7 @@ fun tc_one_instruction inst =
 			(* use the step theorem *)
 			THEN (ASSUME_TAC step)
 			THEN (FULL_SIMP_TAC (srw_ss()) [])
-			THEN (RW_TAC (srw_ss()) [combinTheory.UPDATE_def])
+			THEN (RW_TAC (srw_ss()) [combinTheory.UPDATE_def, bool2b_def])
 		       );
     in
 	thm
@@ -355,27 +381,18 @@ tc_one_instruction `ADD X0, X1, #42 `;
 tc_one_instruction `BR X0`;
 tc_one_instruction `BLR X0`;
 
+tc_one_instruction `BIC X0, X0, X1`;
+
+(*  Other flags: *)
+(* EQ, NE, CS, HS, CC, LO, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL, NV  *)
+tc_one_instruction `CSINC X0, X1, X0, NE`;
 
 val inst = `BLR X0`;
 (PROCESS_ONE_ASSIGNMENT certs 1)
 (PROCESS_ONE_ASSIGNMENT certs 2)
-(PROCESS_ONE_ASSIGNMENT certs 3)
-(PROCESS_ONE_ASSIGNMENT certs 4)
-(PROCESS_ONE_ASSIGNMENT certs 5)
+val n = 2;
 
 
 
 
 
-
-
-
-val inst = `ADD X0, X0, X0`;
-
-val th::[] =arm8thl;
-
-(PROCESS_ONE_ASSIGNMENT certs 1)
-(PROCESS_ONE_ASSIGNMENT certs 2)
-(PROCESS_ONE_ASSIGNMENT certs 3)
-val n = 3;
-(PROCESS_ONE_ASSIGNMENT certs 3)
