@@ -293,22 +293,14 @@ val bool_cast_simpl2_tm = prove (``!e.(case bool2b e
 fun PROCESS_ONE_ASSIGNMENT certs n =
     let val var_name = mk_var(concat["env", Int.toString n], ``:environment``)
 	val th_just = (List.nth (certs, n-1))
-        (* if we have a memory variable, move this at the end of the quantifiers *)
-	val frst_forall_var = (fst o dest_forall o concl) th_just
-	val th_just2 = if (type_of frst_forall_var) = ``:bil_int_t -> bil_int_t`` then
-			   ((GEN ``env:environment``) o
-			    (GEN ``s:arm8_state``) o
-			    (GEN frst_forall_var) o SPEC_ALL) th_just else
-		       th_just
-	val th1 = SPEC ``^var_name`` th_just2
+	val th1 = SPEC ``^var_name`` th_just
 	val th2 = if is_forall (concl th1) then SPEC ``s:arm8_state`` th1 else th1
-	val th3 = if is_forall (concl th2) then SPEC ``m:bil_int_t -> bil_int_t`` th2 else th2
     in
 	(ABBREV_NEW_ENV n)
 	THEN (FULL_SIMP_TAC (srw_ss()) [Once bil_exec_step_n_def])
 	THEN (computeLib.RESTR_EVAL_TAC [``bil_eval_exp``, ``bil_exec_step_n``])
 	THEN (FULL_SIMP_TAC (srw_ss()) [])
-	THEN (ASSUME_TAC th3)
+	THEN (ASSUME_TAC th2)
 	THEN (REV_FULL_SIMP_TAC (srw_ss()) [Abbr `^var_name`])
 	(* bool type simplification *)
 	THEN (FULL_SIMP_TAC (srw_ss()) [bool_cast_simpl2_tm])
@@ -336,7 +328,7 @@ fun tc_one_instruction inst =
          (?v.((env "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_ProcState_Z") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((env "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v))))) /\
-         (!m. (env "MEM" = (MemByte Bit64,Mem Bit64 m)) ==>
+         (?m. (env "MEM" = (MemByte Bit64,Mem Bit64 m)) /\
 	      (!a. m (Reg64 a) = Reg8 (s.MEM a)))
         ) ==>
         (NextStateARM8 s = SOME s1) ==>
@@ -403,12 +395,8 @@ tc_one_instruction `CSNEG X0, X1, X0, EQ`;
 tc_one_instruction `LDRSB X0, [X1]`;
 
 
-val inst = `LDRSB X0, [X1]`;
-(PROCESS_ONE_ASSIGNMENT certs 1)
-THEN (PROCESS_ONE_ASSIGNMENT certs 2)
-THEN (PROCESS_ONE_ASSIGNMENT certs 3)
-THEN (PROCESS_ONE_ASSIGNMENT certs 4)
-val n = 4;
+
+
 
 (* There are problems since we can not lift the carry flag expression *)
 tc_one_instruction `CMP X0, X1 `;
