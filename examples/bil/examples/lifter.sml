@@ -139,7 +139,10 @@ tc_exp_arm8 ``(sw2sw (0w:word8)):word64``;
 tc_exp_arm8 ``s.MEM (0w:word64)``;
 tc_exp_arm8 ``s.MEM (s.REG 1w + 0w)``;
 
+(* memory should use an existential quantifier *)
 tc_exp_arm8 ``s.MEM (0w:word64) + 2w``;
+
+
 (* NO THEOREM WORKS IN 8bit? *)
 
 tc_exp_arm8 ``s.MEM (0w:word64) + (if (s.REG 1w) = 1w then 0w else 1w)``;

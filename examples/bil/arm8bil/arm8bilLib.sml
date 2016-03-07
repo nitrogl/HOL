@@ -601,14 +601,30 @@ val bil_plus_mod_2exp64_tm = tryprove(
   , BIL_PLUS_MOD_2EXP64_TAC
 );
 
+val arm8_to_bil_den_mem_tm = tryprove(
+    ``∀ env d dt dv.
+(?m. (env d = (dt, Mem Bit64 m)) /\
+      (∀a. m (Reg64 a) = Reg8 (dv a)))
+ ==> 
+(?m. (bil_eval_exp (Den d) env = Mem Bit64 m) ∧
+      (∀a. m (Reg64 a) = Reg8 (dv a)))``
+  , BIL_DEN_TAC
+    THEN (RW_TAC (srw_ss()) [])
+);
+
+
 val memory_access_2exp64_tm = tryprove(
-    ``∀m env y x by bx .
+    ``!env y x by bx . 
+   (?m.
    ((bil_eval_exp by env = Mem Bit64 m) /\
-   (bil_eval_exp bx env = Int (Reg64 x))) ==>
-   (!a. (m (Reg64 a)) = (Reg8 (y a))) ==>
-   ((bil_eval_exp (Load by bx (Const (Reg1 1w)) Bit8) env) = (Int (Reg8 (y x))))``, (RW_TAC (srw_ss()) [])
-      THEN  BIL_DEN_TAC
-      THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def])
+   (!a. (m (Reg64 a)) = (Reg8 (y a)))
+   )) /\
+   (bil_eval_exp bx env = Int (Reg64 x))
+   ==>
+   ((bil_eval_exp (Load by bx (Const (Reg1 1w)) Bit8) env) = (Int (Reg8 (y x))))
+   ``,  (RW_TAC (srw_ss()) [])
+       THEN  BIL_DEN_TAC
+       THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def])
 );
 
 val mem_dword_2exp64_tm = tryprove(
@@ -1039,9 +1055,10 @@ fun tc_exp_arm8_prefix ae prefix =
 	else if is_mem ae then
 	    let
 	(* temporary lifter for memory. For now we do not support load from updated memory *)
+		val access_tm = ((SPECL [``"MEM"``, ``MemByte Bit64``, ``^o1.MEM``] o SPEC_ENV) arm8_to_bil_den_mem_tm)
 		val tce_o1 = (``(Den "MEM")``, ``^o1.MEM``,
-			      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [``"MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm)
-		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` memory_access_2exp64_tm) tce_o1 (tce o2));
+			      GEN_ENV access_tm)
+		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN memory_access_2exp64_tm tce_o1 (tce o2));
 		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
 	    in
 		(be, ae, mp)
