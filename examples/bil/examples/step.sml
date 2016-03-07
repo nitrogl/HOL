@@ -386,6 +386,8 @@ tc_one_instruction `BIC X0, X0, X1`;
 (*  Other flags: *)
 (* EQ, NE, CS, HS, CC, LO, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL, NV  *)
 tc_one_instruction `CSINC X0, X1, X0, NE`;
+tc_one_instruction `CSINC X0, X1, X0, EQ`;
+tc_one_instruction `CSNEG X0, X1, X0, EQ`;
 
 val inst = `BLR X0`;
 (PROCESS_ONE_ASSIGNMENT certs 1)
