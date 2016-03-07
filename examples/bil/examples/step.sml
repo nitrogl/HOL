@@ -389,6 +389,28 @@ tc_one_instruction `CSINC X0, X1, X0, NE`;
 tc_one_instruction `CSINC X0, X1, X0, EQ`;
 tc_one_instruction `CSNEG X0, X1, X0, EQ`;
 
+
+tc_one_instruction `LDRSB X0, [X1]`;
+val inst = `LDRSB X0, [X1]`;
+val arm8thl = arm8_branch_thm_join (arm8_step_hex instr);
+val th::[] = arm8thl;
+val a8sch = List.filter (fn (s, v) => List.exists (fn x => x = s) arm8_supported_fields_str) ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) th);
+
+val (s, a8e) = List.nth (a8sch,0);
+val (bexp, _, thm)  = tc_exp_arm8_prefix a8e "tmp_";
+
+
+
+(* There are problems since we can not lift the carry flag expression *)
+tc_one_instruction `CMP X0, X1 `;
+val inst = `CMP X0, X1`;
+
+
+
+
+
+
+
 val inst = `BLR X0`;
 (PROCESS_ONE_ASSIGNMENT certs 1)
 (PROCESS_ONE_ASSIGNMENT certs 2)

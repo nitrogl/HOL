@@ -1040,7 +1040,7 @@ fun tc_exp_arm8_prefix ae prefix =
 	    let
 	(* temporary lifter for memory. For now we do not support load from updated memory *)
 		val tce_o1 = (``(Den "MEM")``, ``^o1.MEM``,
-			      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [if (prefix = "") then ``"MEM"`` else ``APPEND ^(stringSyntax.fromMLstring prefix) "MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm)
+			      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [``"MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm)
 		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` memory_access_2exp64_tm) tce_o1 (tce o2));
 		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
 	    in
@@ -1050,7 +1050,7 @@ fun tc_exp_arm8_prefix ae prefix =
 	else if (f0 = ``mem_dword``) then
 	    let
 		val tce_o1 = (``(Den "MEM")``, o1,
-			      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [if (prefix = "") then ``"MEM"`` else ``APPEND ^(stringSyntax.fromMLstring prefix) "MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm);
+			      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [``"MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm);
 		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` mem_dword_2exp64_tm) tce_o1 (tce o2));
 		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
 	    in
