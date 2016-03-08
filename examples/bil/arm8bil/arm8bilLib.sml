@@ -650,6 +650,31 @@ val mem_dword_2exp64_tm = tryprove(
       THEN (blastLib.BBLAST_TAC)
 );
 
+val carry_thm = prove (``!e v. 
+        ((if e < 18446744073709551616 then e 
+	  else e MOD 18446744073709551616) <>
+         e) = ~(e < 18446744073709551616)``,
+       (RW_TAC (srw_ss()) [])
+);
+
+(* New theorems for the carry bit *)
+val plus_lt_2exp64_tm = GSYM (tryprove(
+    ``∀ x y . 
+      (((x // 2w) + (y // 2w) + (word_mod x 2w) * (word_mod y 2w)) <+
+       (9223372036854775808w:word64)) =
+      (w2n x + w2n y < 18446744073709551616)
+    ``,
+	(REPEAT STRIP_TAC)
+	THEN (EVAL_TAC)
+	THEN ((FULL_SIMP_TAC (arith_ss) [arithmeticTheory.MOD_PLUS, DIV_PRODMOD_LT_2EXP]))
+	THEN  (FULL_SIMP_TAC (pure_ss) [prove(``(18446744073709551616:num) = 2 ** SUC 63``, EVAL_TAC), SPECL [``63:num``, ``w2n(x:word64)``, ``w2n(y:word64)``] SUM_2EXP_EQ])
+	THEN (ASSUME_TAC (SPECL [``63:num``, ``w2n(x:word64)``, ``w2n(y:word64)``] DIV_PRODMOD_LT_2EXP))
+	THEN (ASSUME_TAC (ISPEC ``x:word64`` wordsTheory.w2n_lt))
+	THEN (ASSUME_TAC (ISPEC ``y:word64`` wordsTheory.w2n_lt))
+	THEN (FULL_SIMP_TAC (srw_ss()) [wordsTheory.dimword_64])
+	THEN ((FULL_SIMP_TAC (arith_ss) []))
+));
+
 fun nw n s = wordsSyntax.mk_wordii(n, s);
 
 (* Generic theorems for binary expressions *)
@@ -901,6 +926,9 @@ fun tc_exp_arm8_prefix ae prefix =
   let
     fun tce ae =
       let
+	(* first apply standard simplifications *)
+	val ae = (((snd o dest_eq o concl) (SIMP_CONV (srw_ss()) [carry_thm, plus_lt_2exp64_tm] ae))
+		    handle UNCHANGED => ae)
         val (o1, o2, o3) = extract_operands ae;
 	val f0 = extract_fun ae;
       in
@@ -938,34 +966,35 @@ fun tc_exp_arm8_prefix ae prefix =
                       ] o SPEC_ENV) arm8_to_bil_den_tm
                   )
 	    end
-        else  if  (is_plus_lt_2exp64 ae)
-          then
-            let
-              val (add1, add2, _) = extract_operands o1;
-              val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_BIN bil_plus_lt_2exp64_tm (tce add1) (tce add2));
-              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
-            in
-              (be, ae, mp)
-            end
-        else  if  (is_plus_mod_2exp64 ae)
-          then
-            let
-              val (add1, add2, _) = extract_operands o1;
-              val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_BIN bil_plus_mod_2exp64_tm (tce add1) (tce add2));
-              val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
-            in
-              (be, ae, mp)
-            end
+        (* else  if  (is_plus_lt_2exp64 ae) *)
+        (*   then *)
+        (*     let *)
+        (*       val (add1, add2, _) = extract_operands o1; *)
+        (*       val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_BIN bil_plus_lt_2exp64_tm (tce add1) (tce add2)); *)
+        (*       val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0); *)
+        (*     in *)
+        (*       (be, ae, mp) *)
+        (*     end *)
+        (* else  if  (is_plus_mod_2exp64 ae) *)
+        (*   then *)
+        (*     let *)
+        (*       val (add1, add2, _) = extract_operands o1; *)
+        (*       val mp = (GEN_ALL o DISCH_ALL) (MP_NUM_BIN bil_plus_mod_2exp64_tm (tce add1) (tce add2)); *)
+        (*       val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0); *)
+        (*     in *)
+        (*       (be, ae, mp) *)
+        (*     end *)
         else  if          (wordsSyntax.is_word_add    ae)
                   orelse  (wordsSyntax.is_word_sub    ae)
                   orelse  (wordsSyntax.is_word_mul    ae)
                   orelse  (wordsSyntax.is_word_div    ae)
                   orelse  (wordsSyntax.is_word_sdiv   ae)
-                  orelse  (wordsSyntax.is_word_mod    ae)
+                  orelse  (f0 = ``word_mod:word64 -> word64 -> word64``)
                   orelse  (wordsSyntax.is_word_smod   ae)
                   orelse  (wordsSyntax.is_word_lsl_bv ae)
                   orelse  (wordsSyntax.is_word_lsr_bv ae)
                   orelse  (wordsSyntax.is_word_asr_bv ae)
+                  orelse  (wordsSyntax.is_word_lo     ae)
                   orelse  (wordsSyntax.is_word_and    ae)
                   orelse  (wordsSyntax.is_word_or     ae)
                   orelse  (wordsSyntax.is_word_xor    ae)
@@ -1073,7 +1102,8 @@ fun tc_exp_arm8_prefix ae prefix =
 	    in
 		(be, ae, mp)
 	    end
-        else  raise UnsupportedARM8ExpressionException ae
+	else
+	    raise UnsupportedARM8ExpressionException ae
       end;
     val (be, _, mp) = tce ae;
   in

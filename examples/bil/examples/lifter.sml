@@ -93,66 +93,17 @@ tc_exp_arm8 exp;
 val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.N``;
 tc_exp_arm8 exp;
 
-val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.C``;
-val ae = exp;
-val prefix = "";
 
-val (o1, o2, o3) = extract_operands ae;
-val f0 = extract_fun ae;
-
-(is_boolean ae);
-(is_plus_lt_2exp64 ae);
-(is_plus_mod_2exp64 ae);
-
-tc_exp_arm8 ``((w2n ((s :arm8_state).REG (3w :word5)) +
-       w2n ((¬s.REG (4w :word5)) :word64) + (1 :num) <
-       (18446744073709551616 :num))
-        :bool)``;
-tc_exp_arm8 ``w2n (s.REG (3w :word5)) + w2n ((¬s.REG (4w :word5)) :word64) + (1 :num)``;
-
-val carry_thm = prove (``!e v. 
-        ((if e < 18446744073709551616 then e 
-	  else e MOD 18446744073709551616) <>
-         e) = ~(e < 18446744073709551616)``,
-       (RW_TAC (srw_ss()) [])
-);
-
-(* New theorems for the carry bit *)
-val plus_lt_2exp64_tm = GSYM (tryprove(
-    ``∀ x y . 
-      (((x // 2w) + (y // 2w) + (word_mod x 2w) * (word_mod y 2w)) <+
-       (9223372036854775808w:word64)) =
-      (w2n x + w2n y < 18446744073709551616)
-    ``,
-	(REPEAT STRIP_TAC)
-	THEN (EVAL_TAC)
-	THEN ((FULL_SIMP_TAC (arith_ss) [arithmeticTheory.MOD_PLUS, DIV_PRODMOD_LT_2EXP]))
-	THEN  (FULL_SIMP_TAC (pure_ss) [prove(``(18446744073709551616:num) = 2 ** SUC 63``, EVAL_TAC), SPECL [``63:num``, ``w2n(x:word64)``, ``w2n(y:word64)``] SUM_2EXP_EQ])
-	THEN (ASSUME_TAC (SPECL [``63:num``, ``w2n(x:word64)``, ``w2n(y:word64)``] DIV_PRODMOD_LT_2EXP))
-	THEN (ASSUME_TAC (ISPEC ``x:word64`` wordsTheory.w2n_lt))
-	THEN (ASSUME_TAC (ISPEC ``y:word64`` wordsTheory.w2n_lt))
-	THEN (FULL_SIMP_TAC (srw_ss()) [wordsTheory.dimword_64])
-	THEN ((FULL_SIMP_TAC (arith_ss) []))
-));
-
-val [[t]] = arm8_step_code `ADDS X3, X4, X5 `;
+val [[t]] = arm8_step_code `ADDS X1, X2, X3 `;
 val s1 = (snd o dest_comb o snd o dest_eq o concl) t;
+val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.V``;
+tc_exp_arm8 exp;
 val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.C``;
 tc_exp_arm8 exp;
-
-val t1 = SIMP_CONV (srw_ss()) [carry_thm] exp;
-val t2 = SIMP_RULE (srw_ss()) [plus_lt_2exp64_tm] t1;
-tc_exp_arm8 ``s.REG 5w // 2w``;
-tc_exp_arm8 ``word_mod (s.REG 5w) 2w``;
-
-
-
-tc_exp_arm8 ``(s.REG 5w) <+ 0x8000000000000000w``;
-
-
-
-
-
+val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.Z``;
+tc_exp_arm8 exp;
+val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.N``;
+tc_exp_arm8 exp;
 
 
 
