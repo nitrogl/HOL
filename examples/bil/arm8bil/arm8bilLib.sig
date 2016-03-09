@@ -43,7 +43,7 @@ sig
 
   val bil_a8e2HOLstring       : term -> term
   val bil_a8e2HOLstring_prefix: term -> string -> term
-  val bil_a8e2string          : term -> "string"
+  val bil_a8e2string          : term -> string
   val tc_exp_arm8_prefix      : term -> string -> term * term * thm
   val tc_exp_arm8             : term -> term * term * thm
 end

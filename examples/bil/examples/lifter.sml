@@ -92,6 +92,7 @@ val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.Z``;
 tc_exp_arm8 exp;
 val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.N``;
 tc_exp_arm8 exp;
+(* TODO *)
 
 
 val [[t]] = arm8_step_code `ADDS X1, X2, X3 `;
@@ -104,12 +105,6 @@ val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.Z``;
 tc_exp_arm8 exp;
 val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.N``;
 tc_exp_arm8 exp;
-
-
-
-
-
-
 
 
 

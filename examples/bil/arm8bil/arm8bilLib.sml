@@ -675,6 +675,51 @@ val plus_lt_2exp64_tm = GSYM (tryprove(
 	THEN ((FULL_SIMP_TAC (arith_ss) []))
 ));
 
+(* ------------------------------------------------------------------------- *)
+(*   BIT Theorem : definitions                                                *)
+(* ------------------------------------------------------------------------- *)
+(* MAINLY USED FOR V flag *)
+
+val BIT_exp_thm = store_thm("BIT_exp_thm",
+    ``(BIT (b:num) (n:num)) = (((n DIV (2 ** b)) MOD 2) = 1)``,
+    `(SUC b - b) = 1` by  RW_TAC (arith_ss) []
+    THEN RW_TAC (arith_ss) [bitTheory.BIT_def, bitTheory.BITS_THM]);
+
+
+val BIT_shift_thm = Q.store_thm("BIT_shift_thm",
+  `!b n. b < dimindex(:'a) ==>
+         (BIT b n = ((n DIV w2n ((1w:'a word) << b)) MOD 2 = 1))`,
+  SRW_TAC [ARITH_ss] [bitTheory.BIT_def, bitTheory.BITS_THM, bitTheory.SUC_SUB, wordsTheory.word_lsl_n2w, wordsTheory.dimword_def]);
+
+val Bword_BIT_thm = Q.store_thm( "Bword_BIT_thm",
+        `!b n:num. (b < dimindex(:'a)) ==> (BIT b n = (word_lsb((n2w(n):'a word) >>> b)))`,
+        RW_TAC (arith_ss++fcpLib.FCP_ss) [wordsTheory.word_lsr_def]
+        THEN (blastLib.BBLAST_TAC)
+        THEN (RW_TAC (arith_ss++fcpLib.FCP_ss) [wordsTheory.word_index]));
+
+val Bword_BIT2_thm = Q.store_thm( "Bword_BIT2_thm",
+        `!b n:num. (b < dimindex(:'a)) ==> ((word_lsb(n:'a word) >>> b) = `,
+        RW_TAC (arith_ss++fcpLib.FCP_ss) [wordsTheory.word_lsr_bv_def]
+        THEN (blastLib.BBLAST_TAC)
+        THEN (RW_TAC (arith_ss++fcpLib.FCP_ss) [wordsTheory.word_index]));
+
+val BIT63_tmp_thm = ((SIMP_RULE (srw_ss()) [wordsTheory.dimindex_64]) o
+		 (SPECL [``63:num``]) o
+		 (Thm.INST_TYPE [alpha |-> ``:64``])) Bword_BIT_thm;
+
+val BIT63_thm = Q.store_thm( "BIT63_thm",
+        `!n:num. BIT 63 n ⇔ word_lsb (n2w n >>>~ (63w:word64))`,
+        RW_TAC (srw_ss()) [BIT63_tmp_thm]);
+
+(* MAINLY USED FOR V flag in addittions *)
+
+val Bword_add_thm = Q.store_thm("Bword_add_thm",
+        `!a b:num. (n2w(a + b):'a word = n2w(a) + n2w(b))`,
+        RW_TAC (srw_ss()) [wordsTheory.word_add_def,wordsTheory.word_add_n2w]);
+
+val Bword_add_64_thm = (Thm.INST_TYPE [alpha |-> ``:64``])Bword_add_thm;
+
+
 fun nw n s = wordsSyntax.mk_wordii(n, s);
 
 (* Generic theorems for binary expressions *)
@@ -921,13 +966,23 @@ val bool_cast_simpl_tm = prove (``!e.(case if e then Reg1 (1w :word1) else Reg1 
         | Reg64 v15 => Reg Bit64) = Reg Bit1``,
        (RW_TAC (srw_ss()) []));
 
+HOL_Interactive.toggle_quietdec();
+(* prevent >>>~ to become >>> *)
+val myss = simpLib.remove_ssfrags (srw_ss()) ["word shift"];
+HOL_Interactive.toggle_quietdec();
+
 (* Transcompiler arm8 expressions to BIL model expressions *)
 fun tc_exp_arm8_prefix ae prefix =
   let
     fun tce ae =
       let
 	(* first apply standard simplifications *)
-	val ae = (((snd o dest_eq o concl) (SIMP_CONV (srw_ss()) [carry_thm, plus_lt_2exp64_tm] ae))
+	val ae = (((snd o dest_eq o concl)
+		       (SIMP_CONV (myss) [
+			(* These are for the C flag in addittion *)
+			carry_thm, plus_lt_2exp64_tm,
+			(* These are for the V flag in addittion *)
+			BIT63_thm, Bword_add_64_thm] ae))
 		    handle UNCHANGED => ae)
         val (o1, o2, o3) = extract_operands ae;
 	val f0 = extract_fun ae;
