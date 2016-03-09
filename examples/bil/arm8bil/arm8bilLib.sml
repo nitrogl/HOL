@@ -971,19 +971,33 @@ HOL_Interactive.toggle_quietdec();
 val myss = simpLib.remove_ssfrags (srw_ss()) ["word shift"];
 HOL_Interactive.toggle_quietdec();
 
+val eq_trans_on_env_tm = prove(
+     ``!env:environment v1 v2. ((bil_eval_exp v2 env)=(Int (bool2b v1)))==>(v1=v3)==>((bil_eval_exp v2 env)=(Int (bool2b v3)))``,
+     (RW_TAC (srw_ss()) []));
+
 (* Transcompiler arm8 expressions to BIL model expressions *)
 fun tc_exp_arm8_prefix ae prefix =
   let
     fun tce ae =
+      (* first apply standard simplifications *)
+      (let val new_exp_thm = (SIMP_CONV (myss) [
+      			(* These are for the C flag in addittion *)
+      			carry_thm, plus_lt_2exp64_tm,
+      			(* These are for the V flag in addittion *)
+      			BIT63_thm, Bword_add_64_thm] ae)
+      	   val ae0 = (fst o dest_eq o concl) new_exp_thm
+      	   val ae1 = (snd o dest_eq o concl) new_exp_thm
+	   val t1 = MP_UN eq_trans_on_env_tm (tce ae1)
+	   val t1_gen_v3 = GEN ``v3:bool`` t1
+	   val t1_on_ae0 = SPEC ae0 t1_gen_v3
+	   val t2 = MP t1_on_ae0 (SYM new_exp_thm)
+	   val mp = (GEN_ALL o DISCH_ALL) t2
+	   val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0)
+      	   in
+	      (be, ae, mp)
+       end)
+       handle _ =>
       let
-	(* first apply standard simplifications *)
-	val ae = (((snd o dest_eq o concl)
-		       (SIMP_CONV (myss) [
-			(* These are for the C flag in addittion *)
-			carry_thm, plus_lt_2exp64_tm,
-			(* These are for the V flag in addittion *)
-			BIT63_thm, Bword_add_64_thm] ae))
-		    handle UNCHANGED => ae)
         val (o1, o2, o3) = extract_operands ae;
 	val f0 = extract_fun ae;
       in

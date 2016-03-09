@@ -267,9 +267,13 @@ fun ABBREV_NEW_ENV n (asl, g) =
 	val (x,_) = dest_imp g
 	val (s,_) = dest_eq x
 	val (f, [s,n]) = strip_comb s
-	val nenv = (snd o dest_eq o concl o (computeLib.RESTR_EVAL_CONV [``bool2b``])) ``^s.environ``
+        (* eval tac was simplifying too much *)
+        val thm_rev = (SIMP_CONV (srw_ss()) [] ``^s.environ``)
+	val nenv = (snd o dest_eq o concl) thm_rev
        in
-	   (Q.ABBREV_TAC `^var_name=^nenv`) (asl,g)
+	(* I must ensure that the same simplification is applied to the env *)
+	   ((SIMP_TAC (srw_ss()) []) THEN
+	   (Q.ABBREV_TAC `^var_name=^nenv`)) (asl,g)
     end;
 
 (* Theorem to simplifying boolean cast *)
@@ -291,14 +295,15 @@ val bool_cast_simpl2_tm = prove (``!e.(case bool2b e
 
 
 fun PROCESS_ONE_ASSIGNMENT certs n =
-    let val var_name = mk_var(concat["env", Int.toString n], ``:environment``)
+    let val _ = print "Processing instructio\n"
+	val var_name = mk_var(concat["env", Int.toString n], ``:environment``)
 	val th_just = (List.nth (certs, n-1))
 	val th1 = SPEC ``^var_name`` th_just
 	val th2 = if is_forall (concl th1) then SPEC ``s:arm8_state`` th1 else th1
     in
 	(ABBREV_NEW_ENV n)
 	THEN (FULL_SIMP_TAC (srw_ss()) [Once bil_exec_step_n_def])
-	THEN (computeLib.RESTR_EVAL_TAC [``bil_eval_exp``, ``bil_exec_step_n``])
+	THEN (computeLib.RESTR_EVAL_TAC [``bil_eval_exp``, ``bil_exec_step_n``, ``bool2b``])
 	THEN (FULL_SIMP_TAC (srw_ss()) [])
 	THEN (ASSUME_TAC th2)
 	THEN (REV_FULL_SIMP_TAC (srw_ss()) [Abbr `^var_name`])
@@ -321,11 +326,17 @@ fun tc_one_instruction inst =
          ((env "R0") = (Reg Bit64, Int (Reg64 (s.REG 0w)))) /\
          ((env "R1") = (Reg Bit64, Int (Reg64 (s.REG 1w)))) /\
          ((env "R30") = (Reg Bit64, Int (Reg64 (s.REG 30w)))) /\
+         ((env "ProcState_C") = (Reg Bit1, Int (bool2b s.PSTATE.C))) /\
+         ((env "ProcState_N") = (Reg Bit1, Int (bool2b s.PSTATE.N))) /\
+         ((env "ProcState_V") = (Reg Bit1, Int (bool2b s.PSTATE.V))) /\
          ((env "ProcState_Z") = (Reg Bit1, Int (bool2b s.PSTATE.Z))) /\
          ((env "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s.PC)))) /\
          (?v.((env "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((env "tmp_ProcState_C") = (Reg Bit1, Int (Reg1 (v))))) /\
+         (?v.((env "tmp_ProcState_N") = (Reg Bit1, Int (Reg1 (v))))) /\
+         (?v.((env "tmp_ProcState_V") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((env "tmp_ProcState_Z") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((env "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?m. (env "MEM" = (MemByte Bit64,Mem Bit64 m)) /\
@@ -346,11 +357,17 @@ fun tc_one_instruction inst =
          ((bs1.environ "R0") = (Reg Bit64, Int (Reg64 (s1.REG 0w)))) /\
          ((bs1.environ "R1") = (Reg Bit64, Int (Reg64 (s1.REG 1w)))) /\
          ((bs1.environ "R30") = (Reg Bit64, Int (Reg64 (s1.REG 30w)))) /\
+         ((bs1.environ "ProcState_C") = (Reg Bit1, Int (bool2b s1.PSTATE.C))) /\
+         ((bs1.environ "ProcState_N") = (Reg Bit1, Int (bool2b s1.PSTATE.N))) /\
+         ((bs1.environ "ProcState_V") = (Reg Bit1, Int (bool2b s1.PSTATE.V))) /\
          ((bs1.environ "ProcState_Z") = (Reg Bit1, Int (bool2b s1.PSTATE.Z))) /\
          ((bs1.environ "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s1.PC)))) /\
          (?v.((bs1.environ "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((bs1.environ "tmp_ProcState_C") = (Reg Bit1, Int (Reg1 (v))))) /\
+         (?v.((bs1.environ "tmp_ProcState_N") = (Reg Bit1, Int (Reg1 (v))))) /\
+         (?v.((bs1.environ "tmp_ProcState_V") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((bs1.environ "tmp_ProcState_Z") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((bs1.environ "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v)))))
         )``;
@@ -396,12 +413,23 @@ tc_one_instruction `LDRSB X0, [X1]`;
 
 
 
+tc_one_instruction `ADDS X0, X1, X0`;
+val inst = `ADDS X0, X1, X0`;
+(PROCESS_ONE_ASSIGNMENT certs 1)
+THEN (PROCESS_ONE_ASSIGNMENT certs 2)
+THEN (PROCESS_ONE_ASSIGNMENT certs 3)
+THEN (PROCESS_ONE_ASSIGNMENT certs 4)
+THEN (PROCESS_ONE_ASSIGNMENT certs 5)
+THEN (PROCESS_ONE_ASSIGNMENT certs 6)
+THEN (PROCESS_ONE_ASSIGNMENT certs 7)
+THEN (PROCESS_ONE_ASSIGNMENT certs 8)
+THEN (PROCESS_ONE_ASSIGNMENT certs 9)
+THEN (PROCESS_ONE_ASSIGNMENT certs 10)
 
-
-(* There are problems since we can not lift the carry flag expression *)
-tc_one_instruction `CMP X0, X1 `;
-val inst = `CMP X0, X1`;
-
+THEN (PROCESS_ONE_ASSIGNMENT certs 11)
+THEN (PROCESS_ONE_ASSIGNMENT certs 12)
+THEN (PROCESS_ONE_ASSIGNMENT certs 13)
+      
 
 
 
@@ -415,5 +443,10 @@ val n = 2;
 
 
 
+
+
+(* There are problems since we can not lift the carry flag expression *)
+tc_one_instruction `CMP X0, X1 `;
+val inst = `CMP X0, X1`;
 
 
