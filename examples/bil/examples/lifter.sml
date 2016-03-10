@@ -102,7 +102,7 @@ tc_exp_arm8 exp;
 
 val new_exp_thm = (SIMP_CONV (myss) [
       			(* These are for the C flag in addittion *)
-      			carry_thm, plus_lt_2exp64_tm,
+      			carry_thm, plus_lt_2exp64_tm, minus_lt_2exp64_tm,
       			(* These are for the V flag in addittion *)
       			BIT63_thm, Bword_add_64_thm] exp);
 val ae1 = (snd o dest_eq o concl) new_exp_thm;
@@ -182,17 +182,11 @@ tc_exp_arm8 ``s.MEM (0w:word64) + 2w``;
 tc_exp_arm8 ``s.MEM (0w:word64) + (if (s.REG 1w) = 1w then 0w else 1w)``;
 
 (* LOAD OF A WORLD *)
-arm8_step_code `LDR X0, [X1]`;
-
-tc_exp_arm8 ``mem_dword s.MEM (s.REG 1w + 0w)``;
-tc_exp_arm8 ``(mem_dword s.MEM (s.REG 1w + 0w)) + (s.REG 2w)``;
-
-arm8_step_code `ADD W0, W1, W2`;
-tc_exp_arm8 ``(w2w
-              ((w2w (s.REG (1w :word5)) :word32) +
-               (w2w (s.REG (2w :word5)) :word32)) :word64)``;
-
-tc_exp_arm8 ``(w2w ((5w :word32) + (5w :word32)) :word64)``;
+val [[t]] = arm8_step_code `LDR X0, [X1]`;
+val s1 = (snd o dest_comb o snd o dest_eq o concl) t;
+val exp = (snd o dest_eq o concl o (computeLib.RESTR_EVAL_CONV [``mem_dword``])) ``^s1.REG 0w``;
+tc_exp_arm8 exp;
 
 
-
+val prefix = "";
+val ae = exp;

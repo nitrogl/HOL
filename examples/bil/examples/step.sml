@@ -412,6 +412,12 @@ tc_one_instruction `CSNEG X0, X1, X0, EQ`;
 tc_one_instruction `LDRSB X0, [X1]`;
 
 tc_one_instruction `ADDS X0, X1, X0`;
+tc_one_instruction `CMP X0, X1 `;
+
+
+tc_one_instruction `LDR X0, [X1]`;
+
+
 
 
       
@@ -419,7 +425,6 @@ tc_one_instruction `ADDS X0, X1, X0`;
 
 
 (* There are problems since we can not lift the carry flag expression *)
-tc_one_instruction `CMP X0, X1 `;
 val inst = `CMP X0, X1`;
 
 

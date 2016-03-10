@@ -628,10 +628,13 @@ val memory_access_2exp64_tm = tryprove(
 );
 
 val mem_dword_2exp64_tm = tryprove(
-    ``∀m env y x by bx .
+    ``∀env y x by bx .
+   (?m.
    ((bil_eval_exp by env = Mem Bit64 m) /\
-   (bil_eval_exp bx env = Int (Reg64 x))) ==>
-   (!a. (m (Reg64 a)) = (Reg8 (y a))) ==>
+   (!a. (m (Reg64 a)) = (Reg8 (y a)))
+   )) /\
+   (bil_eval_exp bx env = Int (Reg64 x))
+   ==>
    ((bil_eval_exp (Load by bx (Const (Reg1 0w)) Bit64) env) = (Int (Reg64 (mem_dword y x))))``,
     (RW_TAC (srw_ss()) [])
       THEN (BIL_DEN_TAC)
@@ -991,7 +994,9 @@ fun tc_exp_arm8_prefix ae prefix =
   let
     fun tce ae =
       (* first apply standard simplifications *)
-      (let val new_exp_thm = (SIMP_CONV (myss) [
+      (let val _ = if (type_of ae) = ``:bool`` then true
+		   else raise UnsupportedARM8ExpressionException ae
+	   val new_exp_thm = (SIMP_CONV (myss) [
       			(* These are for the C flag in addittion *)
       			carry_thm, plus_lt_2exp64_tm,
       			(* These are for the C flag in subtractions *)
@@ -1177,9 +1182,12 @@ fun tc_exp_arm8_prefix ae prefix =
 	(* Memory access dword based *)
 	else if (f0 = ``mem_dword``) then
 	    let
-		val tce_o1 = (``(Den "MEM")``, o1,
-			      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [``"MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm);
-		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` mem_dword_2exp64_tm) tce_o1 (tce o2));
+		val access_tm = ((SPECL [``"MEM"``, ``MemByte Bit64``, o1] o SPEC_ENV) arm8_to_bil_den_mem_tm)
+		val tce_o1 = (``(Den "MEM")``, o1, GEN_ENV access_tm)
+		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN mem_dword_2exp64_tm tce_o1 (tce o2));
+		(* val tce_o1 = (``(Den "MEM")``, o1, *)
+		(* 	      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [``"MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm); *)
+		(* val mp = (GEN_ALL o DISCH_ALL) (MP_BIN (SPEC ``m:bil_int_t->bil_int_t`` mem_dword_2exp64_tm) tce_o1 (tce o2)); *)
 		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
 	    in
 		(be, ae, mp)
