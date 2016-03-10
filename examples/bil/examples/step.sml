@@ -411,37 +411,10 @@ tc_one_instruction `CSNEG X0, X1, X0, EQ`;
 
 tc_one_instruction `LDRSB X0, [X1]`;
 
-
-
 tc_one_instruction `ADDS X0, X1, X0`;
-val inst = `ADDS X0, X1, X0`;
-(PROCESS_ONE_ASSIGNMENT certs 1)
-THEN (PROCESS_ONE_ASSIGNMENT certs 2)
-THEN (PROCESS_ONE_ASSIGNMENT certs 3)
-THEN (PROCESS_ONE_ASSIGNMENT certs 4)
-THEN (PROCESS_ONE_ASSIGNMENT certs 5)
-THEN (PROCESS_ONE_ASSIGNMENT certs 6)
-THEN (PROCESS_ONE_ASSIGNMENT certs 7)
-THEN (PROCESS_ONE_ASSIGNMENT certs 8)
-THEN (PROCESS_ONE_ASSIGNMENT certs 9)
-THEN (PROCESS_ONE_ASSIGNMENT certs 10)
 
-THEN (PROCESS_ONE_ASSIGNMENT certs 11)
-THEN (PROCESS_ONE_ASSIGNMENT certs 12)
-THEN (PROCESS_ONE_ASSIGNMENT certs 13)
+
       
-
-
-
-
-
-
-val inst = `BLR X0`;
-(PROCESS_ONE_ASSIGNMENT certs 1)
-(PROCESS_ONE_ASSIGNMENT certs 2)
-val n = 2;
-
-
 
 
 
@@ -450,3 +423,4 @@ tc_one_instruction `CMP X0, X1 `;
 val inst = `CMP X0, X1`;
 
 
+val n = 2;

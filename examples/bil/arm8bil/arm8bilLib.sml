@@ -675,6 +675,16 @@ val plus_lt_2exp64_tm = GSYM (tryprove(
 	THEN ((FULL_SIMP_TAC (arith_ss) []))
 ));
 
+(* TODO *)
+val minus_lt_2exp64_tm = GSYM (tryprove(
+    ``∀ x y . 
+      (((x // 2w) + (y // 2w) + (word_mod x 2w) * (word_mod y 2w)) <+
+       (9223372036854775808w:word64)) =
+      (w2n x + w2n y + 1 < 18446744073709551616)
+    ``,
+    cheat
+));
+
 (* ------------------------------------------------------------------------- *)
 (*   BIT Theorem : definitions                                                *)
 (* ------------------------------------------------------------------------- *)
@@ -697,12 +707,12 @@ val Bword_BIT_thm = Q.store_thm( "Bword_BIT_thm",
         THEN (blastLib.BBLAST_TAC)
         THEN (RW_TAC (arith_ss++fcpLib.FCP_ss) [wordsTheory.word_index]));
 
-val Bword_BIT2_thm = Q.store_thm( "Bword_BIT2_thm",
+(* val Bword_BIT2_thm = Q.store_thm( "Bword_BIT2_thm",
         `!b n:num. (b < dimindex(:'a)) ==> ((word_lsb(n:'a word) >>> b) = `,
         RW_TAC (arith_ss++fcpLib.FCP_ss) [wordsTheory.word_lsr_bv_def]
         THEN (blastLib.BBLAST_TAC)
         THEN (RW_TAC (arith_ss++fcpLib.FCP_ss) [wordsTheory.word_index]));
-
+*)
 val BIT63_tmp_thm = ((SIMP_RULE (srw_ss()) [wordsTheory.dimindex_64]) o
 		 (SPECL [``63:num``]) o
 		 (Thm.INST_TYPE [alpha |-> ``:64``])) Bword_BIT_thm;
@@ -719,6 +729,12 @@ val Bword_add_thm = Q.store_thm("Bword_add_thm",
 
 val Bword_add_64_thm = (Thm.INST_TYPE [alpha |-> ``:64``])Bword_add_thm;
 
+
+(* For simplification sule: we first simplify then we lift the simplified one *)
+(* we use transitivity of equality *)
+val eq_trans_on_env_tm = prove(
+     ``!env:environment v1 v2. ((bil_eval_exp v2 env)=(Int (bool2b v1)))==>(v1=v3)==>((bil_eval_exp v2 env)=(Int (bool2b v3)))``,
+     (RW_TAC (srw_ss()) []));
 
 fun nw n s = wordsSyntax.mk_wordii(n, s);
 
@@ -966,14 +982,9 @@ val bool_cast_simpl_tm = prove (``!e.(case if e then Reg1 (1w :word1) else Reg1 
         | Reg64 v15 => Reg Bit64) = Reg Bit1``,
        (RW_TAC (srw_ss()) []));
 
-HOL_Interactive.toggle_quietdec();
 (* prevent >>>~ to become >>> *)
 val myss = simpLib.remove_ssfrags (srw_ss()) ["word shift"];
-HOL_Interactive.toggle_quietdec();
 
-val eq_trans_on_env_tm = prove(
-     ``!env:environment v1 v2. ((bil_eval_exp v2 env)=(Int (bool2b v1)))==>(v1=v3)==>((bil_eval_exp v2 env)=(Int (bool2b v3)))``,
-     (RW_TAC (srw_ss()) []));
 
 (* Transcompiler arm8 expressions to BIL model expressions *)
 fun tc_exp_arm8_prefix ae prefix =
@@ -983,6 +994,8 @@ fun tc_exp_arm8_prefix ae prefix =
       (let val new_exp_thm = (SIMP_CONV (myss) [
       			(* These are for the C flag in addittion *)
       			carry_thm, plus_lt_2exp64_tm,
+      			(* These are for the C flag in subtractions *)
+			minus_lt_2exp64_tm,
       			(* These are for the V flag in addittion *)
       			BIT63_thm, Bword_add_64_thm] ae)
       	   val ae0 = (fst o dest_eq o concl) new_exp_thm

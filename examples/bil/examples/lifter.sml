@@ -79,21 +79,7 @@ val ae2 = (snd o dest_eq o concl) (REWRITE_CONV [(GSYM wordsTheory.word_asr_bv_d
 (* val ae2 = (snd o dest_eq o concl) (REWRITE_CONV [Once t, (GSYM wordsTheory.word_asr_bv_def)] ae1); *)
 tc_exp_arm8 ae2;
 
-(* COMPARISON *)
-
-arm8_step_code `CMP W3, W4 `;
-val [[t]] = arm8_step_code `CMP X3, X4 `;
-val s1 = (snd o dest_comb o snd o dest_eq o concl) t;
-val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.V``;
-tc_exp_arm8 exp;
-val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.C``;
-tc_exp_arm8 exp;
-val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.Z``;
-tc_exp_arm8 exp;
-val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.N``;
-tc_exp_arm8 exp;
-(* TODO *)
-
+(* FLAGS *)
 
 val [[t]] = arm8_step_code `ADDS X1, X2, X3 `;
 val s1 = (snd o dest_comb o snd o dest_eq o concl) t;
@@ -105,6 +91,50 @@ val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.Z``;
 tc_exp_arm8 exp;
 val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.N``;
 tc_exp_arm8 exp;
+
+arm8_step_code `CMP W3, W4 `;
+val [[t]] = arm8_step_code `CMP X3, X4 `;
+val s1 = (snd o dest_comb o snd o dest_eq o concl) t;
+val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.V``;
+tc_exp_arm8 exp;
+val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.C``;
+tc_exp_arm8 exp;
+
+val new_exp_thm = (SIMP_CONV (myss) [
+      			(* These are for the C flag in addittion *)
+      			carry_thm, plus_lt_2exp64_tm,
+      			(* These are for the V flag in addittion *)
+      			BIT63_thm, Bword_add_64_thm] exp);
+val ae1 = (snd o dest_eq o concl) new_exp_thm;
+tc_exp_arm8 ae1;
+
+val plus1_lt_2exp64_tm = GSYM (tryprove(
+    ``∀ x y . 
+      (((x // 2w) + (y // 2w) + (word_mod x 2w) * (word_mod y 2w)) <+
+       (9223372036854775808w:word64)) =
+      (w2n x + w2n (~y) + 1 < 18446744073709551616)
+    ``,
+	(REPEAT STRIP_TAC)
+	THEN (EVAL_TAC)
+	THEN ((FULL_SIMP_TAC (arith_ss) [arithmeticTheory.MOD_PLUS, DIV_PRODMOD_LT_2EXP]))
+	THEN  (FULL_SIMP_TAC (pure_ss) [prove(``(18446744073709551616:num) = 2 ** SUC 63``, EVAL_TAC), SPECL [``63:num``, ``w2n(x:word64)``, ``w2n(y:word64)``] SUM_2EXP_EQ])
+	THEN (ASSUME_TAC (SPECL [``63:num``, ``w2n(x:word64)``, ``w2n(y:word64)``] DIV_PRODMOD_LT_2EXP))
+	THEN (ASSUME_TAC (ISPEC ``x:word64`` wordsTheory.w2n_lt))
+	THEN (ASSUME_TAC (ISPEC ``y:word64`` wordsTheory.w2n_lt))
+	THEN (FULL_SIMP_TAC (srw_ss()) [wordsTheory.dimword_64])
+	THEN ((FULL_SIMP_TAC (arith_ss) []))
+));
+
+
+
+
+val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.Z``;
+tc_exp_arm8 exp;
+val exp = (snd o dest_eq o concl o EVAL) ``^s1.PSTATE.N``;
+tc_exp_arm8 exp;
+(* TODO *)
+
+
 
 
 
