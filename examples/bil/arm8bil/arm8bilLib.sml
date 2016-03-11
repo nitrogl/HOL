@@ -1192,6 +1192,28 @@ fun tc_exp_arm8_prefix ae prefix =
 	    in
 		(be, ae, mp)
 	    end
+	else if (type_of ae) = ``:word64->word8`` then
+	    (let 
+		 val (i, _) = match_term ``
+((ha + 7w:word64 =+ (63 >< 56) (hv:word64))
+    ((ha + 6w =+ (55 >< 48) hv)
+       ((ha + 5w =+ (47 >< 40) hv)
+          ((ha + 4w =+ (39 >< 32) hv)
+             ((ha + 3w =+ (31 >< 24) hv)
+                ((ha + 2w =+ (23 >< 16) hv)
+                   ((ha + 1w =+ (15 >< 8) hv)
+                      ((ha =+ (7 >< 0) hv) (hm:word64->word8)))))))))`` ae
+		 val access_tm = ((SPECL [``"MEM"``, ``MemByte Bit64``, (subst i ``hm:word64->word8``)] o SPEC_ENV) arm8_to_bil_den_mem_tm);
+		 val (be1, ae1, thm1) = (``(Den "MEM")``, (subst i ``hm:word64->word8``), GEN_ENV access_tm);
+		 val (be2, ae2, thm2) = (tce (subst i ``ha:word64``));
+		 val (be3, ae3, thm3) = (tce (subst i ``hv:word64``));
+		 val thImp = mem_dword_write_tm;
+		 val mp = (GEN_ALL o DISCH_ALL) (MP_ITE thImp (be1, ae1, thm1) (be2, ae2, thm2) (be3, ae3, thm3));
+		 val be = List.nth ((snd o strip_comb o fst o dest_conj o snd o dest_exists o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+	     in
+		 (be, ae, mp)
+	     end)
+	    handle _ => raise UnsupportedARM8ExpressionException ae
 	else
 	    raise UnsupportedARM8ExpressionException ae
       end;

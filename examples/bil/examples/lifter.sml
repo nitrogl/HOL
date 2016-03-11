@@ -187,6 +187,7 @@ val s1 = (snd o dest_comb o snd o dest_eq o concl) t;
 val exp = (snd o dest_eq o concl o (computeLib.RESTR_EVAL_CONV [``mem_dword``])) ``^s1.REG 0w``;
 tc_exp_arm8 exp;
 
-
-val prefix = "";
-val ae = exp;
+val [[t]] = arm8_step_code `STR X1, [X0]`;
+val s1 = (snd o dest_comb o snd o dest_eq o concl) t;
+val exp = (snd o dest_eq o concl o (SIMP_CONV (srw_ss()) [])) ``^s1.MEM``;
+tc_exp_arm8 exp;

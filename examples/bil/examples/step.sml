@@ -295,8 +295,7 @@ val bool_cast_simpl2_tm = prove (``!e.(case bool2b e
 
 
 fun PROCESS_ONE_ASSIGNMENT certs n =
-    let val _ = print "Processing instructio\n"
-	val var_name = mk_var(concat["env", Int.toString n], ``:environment``)
+    let val var_name = mk_var(concat["env", Int.toString n], ``:environment``)
 	val th_just = (List.nth (certs, n-1))
 	val th1 = SPEC ``^var_name`` th_just
 	val th2 = if is_forall (concl th1) then SPEC ``s:arm8_state`` th1 else th1
@@ -415,17 +414,17 @@ tc_one_instruction `ADDS X0, X1, X0`;
 tc_one_instruction `CMP X0, X1 `;
 
 
-tc_one_instruction `LDR X0, [X1]`;
-
-
-
-
-      
-
-
-
 (* There are problems since we can not lift the carry flag expression *)
-val inst = `CMP X0, X1`;
+tc_one_instruction `LDR X0, [X1]`;
+val inst = `LDR X0, [X1]`;
 
+(PROCESS_ONE_ASSIGNMENT certs 1)
+THEN (PROCESS_ONE_ASSIGNMENT certs 2)
+THEN (PROCESS_ONE_ASSIGNMENT certs 3)
+THEN (PROCESS_ONE_ASSIGNMENT certs 4)
 
-val n = 2;
+val n = 4;
+
+val [[t]] = arm8_step_code `STR X1, [X0]`;
+val [[t]] = arm8_step_code `STR W1, [X0]`;
+
