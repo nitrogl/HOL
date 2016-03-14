@@ -409,14 +409,32 @@ tc_one_instruction `CSINC X0, X1, X0, EQ`;
 tc_one_instruction `CSNEG X0, X1, X0, EQ`;
 
 tc_one_instruction `LDRSB X0, [X1]`;
+tc_one_instruction `LDR X0, [X1]`;
 
 tc_one_instruction `ADDS X0, X1, X0`;
 tc_one_instruction `CMP X0, X1 `;
 
 
 (* There are problems since we can not lift the carry flag expression *)
-tc_one_instruction `LDR X0, [X1]`;
-val inst = `LDR X0, [X1]`;
+
+tc_one_instruction `STR X1, [X0]`;
+val inst = `STR X1, [X0]`;
+val code = arm8AssemblerLib.arm8_code inst;
+val instr = (hd code);
+val arm8thl = arm8_branch_thm_join (arm8_step_hex instr);
+val th::[] = arm8thl;
+val lst_changes = ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) th);
+
+val a8sch = List.filter (fn (s, v) => List.exists (fn x => x = s) arm8_supported_fields_str) lst_changes;
+
+val (s, a8e) = List.nth(a8sch, 1);
+(type_of a8e) = ``:word64->word8``;
+val (bexp, _, thm)  = tc_exp_arm8_prefix a8e "";
+val str = stringSyntax.fromMLstring (s);
+    (``Assign ^str ^bexp``, (SIMP_RULE (srw_ss()) [r2s_def] thm))
+                end
+              ) a8sch;
+
 
 (PROCESS_ONE_ASSIGNMENT certs 1)
 THEN (PROCESS_ONE_ASSIGNMENT certs 2)
@@ -425,6 +443,4 @@ THEN (PROCESS_ONE_ASSIGNMENT certs 4)
 
 val n = 4;
 
-val [[t]] = arm8_step_code `STR X1, [X0]`;
-val [[t]] = arm8_step_code `STR W1, [X0]`;
 

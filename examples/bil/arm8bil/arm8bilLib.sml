@@ -688,6 +688,61 @@ val minus_lt_2exp64_tm = GSYM (tryprove(
     cheat
 ));
 
+(* for memory writes *)
+val seven_word_list = [``1w:word64``, ``2w :word64``, ``3w :word64``, ``4w :word64``,
+		   ``5w :word64``, ``6w :word64``, ``7w :word64``];
+val goal = ``∀env hm ha hv bm ba bv .
+   (?m.
+   ((bil_eval_exp bm env = Mem Bit64 m) /\
+   (!a. (m (Reg64 a)) = (Reg8 (hm a)))
+   )) /\
+   (bil_eval_exp ba env = Int (Reg64 ha)) /\
+   (bil_eval_exp bv env = Int (Reg64 hv))
+   ==>
+   (?m.
+   (((bil_eval_exp (Store bm ba bv (Const (Reg1 0w)) Bit64) env) = Mem Bit64 m) /\
+   (!a. (m (Reg64 a)) = (Reg8 (
+((ha + 7w:word64 =+ (63 >< 56) (hv:word64))
+    ((ha + 6w =+ (55 >< 48) hv)
+       ((ha + 5w =+ (47 >< 40) hv)
+          ((ha + 4w =+ (39 >< 32) hv)
+             ((ha + 3w =+ (31 >< 24) hv)
+                ((ha + 2w =+ (23 >< 16) hv)
+                   ((ha + 1w =+ (15 >< 8) hv)
+                      ((ha =+ (7 >< 0) hv) (hm:word64->word8)))))))))
+    a)))
+   ))``;
+val mem_dword_write_tm = prove(``^goal``,
+	  (RW_TAC (srw_ss()) [])
+	  THEN (BIL_DEN_TAC)
+	  (* the memory access get stuck since we do not know the
+	  value of the endianness *)
+	  THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def, n2b_1_def, n2bs_def])
+	  (* we first open the cast *)
+	  THEN (SIMP_TAC (srw_ss()) [bil_lcast_def, bil_hcast_def, bil_cast_def])
+	  THEN (SIMP_TAC (srw_ss()) [bil_add_def])
+	  THEN (RW_TAC (srw_ss()) [])
+          THEN (FULL_SIMP_TAC (srw_ss()) [combinTheory.UPDATE_def])
+          THEN (Cases_on `(a :word64) = (ha :word64)`)
+	  THENL [
+	    (FULL_SIMP_TAC (srw_ss()) [])
+            THEN (MAP_EVERY (fn v => 
+		(FULL_SIMP_TAC (srw_ss()) [blastLib.BBLAST_PROVE ``ha + (^v :word64) <> ha``])
+	        ) seven_word_list)
+	    ,
+	    ALL_TAC
+	  ]
+          THEN (EVERY 
+		    (map (fn v => 
+			     (FULL_SIMP_TAC (srw_ss()) [])
+			     THEN (Cases_on `a = (ha :word64) + (^v :word64)`)
+			     THENL [
+			       (FULL_SIMP_TAC (srw_ss()) []) THEN (blastLib.BBLAST_TAC),
+			       ALL_TAC]
+               ) seven_word_list))
+	  THEN (FULL_SIMP_TAC (srw_ss()) [])
+      );
+
 (* ------------------------------------------------------------------------- *)
 (*   BIT Theorem : definitions                                                *)
 (* ------------------------------------------------------------------------- *)
@@ -1210,6 +1265,7 @@ fun tc_exp_arm8_prefix ae prefix =
 		 val thImp = mem_dword_write_tm;
 		 val mp = (GEN_ALL o DISCH_ALL) (MP_ITE thImp (be1, ae1, thm1) (be2, ae2, thm2) (be3, ae3, thm3));
 		 val be = List.nth ((snd o strip_comb o fst o dest_conj o snd o dest_exists o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+		 val be = List.nth ((snd o strip_comb) be, 0);
 	     in
 		 (be, ae, mp)
 	     end)

@@ -191,3 +191,32 @@ val [[t]] = arm8_step_code `STR X1, [X0]`;
 val s1 = (snd o dest_comb o snd o dest_eq o concl) t;
 val exp = (snd o dest_eq o concl o (SIMP_CONV (srw_ss()) [])) ``^s1.MEM``;
 tc_exp_arm8 exp;
+
+
+
+
+val [[t]] = arm8_step_code `sub     sp, sp, #0x40`;
+val [[t]] = arm8_step_code `str     x0, [sp,#24]`;
+val [[t]] = arm8_step_code `str     w3, [sp,#4]`;
+val [[t]] = arm8_step_code `str     wzr, [sp,#56]`;
+val [[t]] = arm8_step_code `b       3c`;
+arm8_step_hex "14000009";
+val [[t]] = arm8_step_code `ldrsw   x0, [sp,#56]`;
+val [[t]] = arm8_step_code `lsl     x0, x0, #1`;
+
+arm8_step_hex "54fffe8c";
+val [[t]] = arm8_step_code `ret`;
+
+
+
+   0:   d10103ff        sub     sp, sp, #0x40
+   4:   f9000fe0        str     x0, [sp,#24]
+   8:   f9000be1        str     x1, [sp,#16]
+   c:   f90007e2        str     x2, [sp,#8]
+  10:   b90007e3        str     w3, [sp,#4]
+  14:   b9003bff        str     wzr, [sp,#56]
+  18:   14000009        b       3c <internal_mul+0x3c>
+  1c:   b9803be0        ldrsw   x0, [sp,#56]
+  20:   d37ff800        lsl     x0, x0, #1
+  24:   f94007e1        ldr     x1, [sp,#8]
+  28:   8b000020        add     x0, x1, x0
