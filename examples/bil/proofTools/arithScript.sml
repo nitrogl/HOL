@@ -112,8 +112,8 @@ val ODDS_DIV2_ADD = store_thm("ODDS_DIV2_ADD"
     THEN  (FULL_SIMP_TAC (srw_ss()) [GSYM MULT_SUM, arithmeticTheory.MULT_DIV])
 );
 
-val ODDS_DIV2_ADD_ALT = prove(
-    ``∀ (j:num) (k:num). (ODD  j ∧ ODD  k) ==> (j DIV 2 + k DIV 2 = (j + k) DIV 2 - 1)``
+val ODDS_DIV2_ADD_ALT = store_thm("ODDS_DIV2_ADD_ALT"
+  , ``∀ (j:num) (k:num). (ODD  j ∧ ODD  k) ==> (j DIV 2 + k DIV 2 = (j + k) DIV 2 - 1)``
   ,       (RW_TAC (pure_ss) [])
     THEN  (FULL_SIMP_TAC (arith_ss) [arithmeticTheory.ODD_EXISTS])
     THEN  (FULL_SIMP_TAC (pure_ss) [SUC_INC, MULT_SUM, MULT_SUM_COMM])
