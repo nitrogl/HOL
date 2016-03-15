@@ -255,7 +255,8 @@ fun bil_backup_arm8_vars_tmp bs bklst =
                 val strsrc = eval (bil_a8e2HOLstring_prefix t "");
                 val strdst = eval (bil_a8e2HOLstring_prefix t "tmp_");
               in
-                if (List.exists (fn x => x = stringSyntax.fromHOLstring strsrc) bklst)
+                if (t <> ``s.MEM``) andalso
+		   (List.exists (fn x => x = stringSyntax.fromHOLstring strsrc) bklst)
                   then  (``Assign ^strdst (Den ^strsrc)``, SIMP_RULE (srw_ss()) [r2s_def] (#3(tc_exp_arm8 t)))
                   else  (removeme, ASSUME ``T``)
               end

@@ -338,7 +338,7 @@ fun tc_one_instruction inst =
          (?v.((env "tmp_ProcState_V") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((env "tmp_ProcState_Z") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((env "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v))))) /\
-         (?m. (env "MEM" = (MemByte Bit64,Mem Bit64 m)) /\
+         (?m. (env "arm8_state_MEM" = (MemByte Bit64,Mem Bit64 m)) /\
 	      (!a. m (Reg64 a) = Reg8 (s.MEM a)))
         ) ==>
         (NextStateARM8 s = SOME s1) ==>
@@ -368,7 +368,9 @@ fun tc_one_instruction inst =
          (?v.((bs1.environ "tmp_ProcState_N") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((bs1.environ "tmp_ProcState_V") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((bs1.environ "tmp_ProcState_Z") = (Reg Bit1, Int (Reg1 (v))))) /\
-         (?v.((bs1.environ "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v)))))
+         (?v.((bs1.environ "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?m. (bs1.environ "arm8_state_MEM" = (MemByte Bit64,Mem Bit64 m)) /\
+	      (!a. m (Reg64 a) = Reg8 (s1.MEM a)))
         )``;
 
 	val thm = prove(``^prog``,
@@ -380,7 +382,7 @@ fun tc_one_instruction inst =
 			THEN (FULL_SIMP_TAC (srw_ss()) [Once bil_exec_step_n_def])
 			THEN DISCH_TAC
 			(* use the step theorem *)
-			THEN (ASSUME_TAC step)
+			THEN (ASSUME_TAC (UNDISCH_ALL (SIMP_RULE myss [] (DISCH_ALL step))))
 			THEN (FULL_SIMP_TAC (srw_ss()) [])
 			THEN (RW_TAC (srw_ss()) [combinTheory.UPDATE_def, bool2b_def])
 		       );
@@ -416,31 +418,63 @@ tc_one_instruction `CMP X0, X1 `;
 
 
 (* There are problems since we can not lift the carry flag expression *)
-
 tc_one_instruction `STR X1, [X0]`;
+
+
 val inst = `STR X1, [X0]`;
 val code = arm8AssemblerLib.arm8_code inst;
 val instr = (hd code);
+(* tc_stmt_arm8_hex *)
 val arm8thl = arm8_branch_thm_join (arm8_step_hex instr);
 val th::[] = arm8thl;
 val lst_changes = ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) th);
-
-val a8sch = List.filter (fn (s, v) => List.exists (fn x => x = s) arm8_supported_fields_str) lst_changes;
-
+val a8sch = List.filter (fn (s, v) => List.exists (fn x => x = s) arm8_supported_fields_str) ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) th);
 val (s, a8e) = List.nth(a8sch, 1);
 (type_of a8e) = ``:word64->word8``;
 val (bexp, _, thm)  = tc_exp_arm8_prefix a8e "";
 val str = stringSyntax.fromMLstring (s);
-    (``Assign ^str ^bexp``, (SIMP_RULE (srw_ss()) [r2s_def] thm))
-                end
-              ) a8sch;
+(``Assign ^str ^bexp``, (SIMP_RULE (srw_ss()) [r2s_def] thm));
 
+val certify_assignments = List.map (fn (s, a8e) =>
+   let
+       val (bexp, _, thm)  = tc_exp_arm8_prefix a8e "tmp_";
+       val str = stringSyntax.fromMLstring (s);
+   in
+       (``Assign ^str ^bexp``, (SIMP_RULE (srw_ss()) [r2s_def] thm))
+   end
+) a8sch;
+
+val (assign, certs) = list_split certify_assignments;
+
+val (tmp_assign, tmp_certs) = bil_backup_arm8_vars_tmp ``bs:stepstate`` (supported_accesses a8sch);
+
+val stmts = eval (List.foldl (fn (a,b) => ``^b ++ [^a]``) ``[]:bil_stmt_t list`` (List.concat [tmp_assign, assign]));
+
+(eval stmts, List.concat [tmp_certs, certs], arm8thl)
 
 (PROCESS_ONE_ASSIGNMENT certs 1)
 THEN (PROCESS_ONE_ASSIGNMENT certs 2)
 THEN (PROCESS_ONE_ASSIGNMENT certs 3)
 THEN (PROCESS_ONE_ASSIGNMENT certs 4)
+THEN (PROCESS_ONE_ASSIGNMENT certs 5)
 
 val n = 4;
 
 
+  Aligned (s.PC,4)
+  1.  Aligned (s.REG 0w,8)
+  2.  ¬s.SCTLR_EL1.E0E
+  3.  ¬s.SCTLR_EL1.SA0
+  4.  s.MEM s.PC = 1w
+  5.  s.MEM (s.PC + 1w) = 0w
+  6.  s.MEM (s.PC + 3w) = 249w
+  7.  s.MEM (s.PC + 2w) = 0w
+  8.  s.PSTATE.EL = 0w
+  9.  s.exception = NoException
+
+Aligned (s.PC,4), 
+Aligned (s.REG 0w + 0w,8),
+ ¬s.SCTLR_EL1.E0E,
+ ¬s.SCTLR_EL1.SA0, s.MEM s.PC = 1w, s.MEM (s.PC + 1w) = 0w,
+ s.MEM (s.PC + 3w) = 249w, s.MEM (s.PC + 2w) = 0w, s.PSTATE.EL = 0w,
+ s.exception = NoException

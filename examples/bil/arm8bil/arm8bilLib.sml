@@ -1226,8 +1226,8 @@ fun tc_exp_arm8_prefix ae prefix =
 	else if is_mem ae then
 	    let
 	(* temporary lifter for memory. For now we do not support load from updated memory *)
-		val access_tm = ((SPECL [``"MEM"``, ``MemByte Bit64``, ``^o1.MEM``] o SPEC_ENV) arm8_to_bil_den_mem_tm)
-		val tce_o1 = (``(Den "MEM")``, ``^o1.MEM``,
+		val access_tm = ((SPECL [``"arm8_state_MEM"``, ``MemByte Bit64``, ``^o1.MEM``] o SPEC_ENV) arm8_to_bil_den_mem_tm)
+		val tce_o1 = (``(Den "arm8_state_MEM")``, ``^o1.MEM``,
 			      GEN_ENV access_tm)
 		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN memory_access_2exp64_tm tce_o1 (tce o2));
 		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
@@ -1237,8 +1237,8 @@ fun tc_exp_arm8_prefix ae prefix =
 	(* Memory access dword based *)
 	else if (f0 = ``mem_dword``) then
 	    let
-		val access_tm = ((SPECL [``"MEM"``, ``MemByte Bit64``, o1] o SPEC_ENV) arm8_to_bil_den_mem_tm)
-		val tce_o1 = (``(Den "MEM")``, o1, GEN_ENV access_tm)
+		val access_tm = ((SPECL [``"arm8_state_MEM"``, ``MemByte Bit64``, o1] o SPEC_ENV) arm8_to_bil_den_mem_tm)
+		val tce_o1 = (``(Den "arm8_state_MEM")``, o1, GEN_ENV access_tm)
 		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN mem_dword_2exp64_tm tce_o1 (tce o2));
 		(* val tce_o1 = (``(Den "MEM")``, o1, *)
 		(* 	      (GEN_ENV o GENL [``m:bil_int_t -> bil_int_t``] o SPECL [``"MEM"``, ``MemByte Bit64``, ``Mem Bit64 m``] o SPEC_ENV) arm8_to_bil_den_tm); *)
@@ -1258,8 +1258,8 @@ fun tc_exp_arm8_prefix ae prefix =
                 ((ha + 2w =+ (23 >< 16) hv)
                    ((ha + 1w =+ (15 >< 8) hv)
                       ((ha =+ (7 >< 0) hv) (hm:word64->word8)))))))))`` ae
-		 val access_tm = ((SPECL [``"MEM"``, ``MemByte Bit64``, (subst i ``hm:word64->word8``)] o SPEC_ENV) arm8_to_bil_den_mem_tm);
-		 val (be1, ae1, thm1) = (``(Den "MEM")``, (subst i ``hm:word64->word8``), GEN_ENV access_tm);
+		 val access_tm = ((SPECL [``"arm8_state_MEM"``, ``MemByte Bit64``, (subst i ``hm:word64->word8``)] o SPEC_ENV) arm8_to_bil_den_mem_tm);
+		 val (be1, ae1, thm1) = (``(Den "arm8_state_MEM")``, (subst i ``hm:word64->word8``), GEN_ENV access_tm);
 		 val (be2, ae2, thm2) = (tce (subst i ``ha:word64``));
 		 val (be3, ae3, thm3) = (tce (subst i ``hv:word64``));
 		 val thImp = mem_dword_write_tm;
