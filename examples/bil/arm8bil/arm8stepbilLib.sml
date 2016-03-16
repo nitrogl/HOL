@@ -1,10 +1,17 @@
 structure arm8stepbilLib :> arm8stepLib =
 struct
 
-open bilTheory;
-open proofTools;
-open arm8bilLib;
+open HolKernel boolLib bossLib Parse;
+open lcsymtacs utilsLib;
+open wordsLib blastLib;
+open state_transformerTheory updateTheory arm8Theory;
+open stateTheory;
+open lcsymtacs arm8_stepTheory;
+open state_transformerSyntax;
 open arm8_stepLib;
+open proofTools arithTheory;
+open bilTheory arm8bilTheory;
+open arm8bilLib;
 
 (* ------------------------------------------------------------------------- *)
 
