@@ -181,21 +181,8 @@ tc_exp_arm8 ``s.MEM (0w:word64) + 2w``;
 
 tc_exp_arm8 ``s.MEM (0w:word64) + (if (s.REG 1w) = 1w then 0w else 1w)``;
 
-(* LOAD OF A WORLD *)
-val [[t]] = arm8_step_code `LDR X0, [X1]`;
-val s1 = (snd o dest_comb o snd o dest_eq o concl) t;
-val exp = (snd o dest_eq o concl o (computeLib.RESTR_EVAL_CONV [``mem_dword``])) ``^s1.REG 0w``;
-tc_exp_arm8 exp;
-
-val [[t]] = arm8_step_code `STR X1, [X0]`;
-val s1 = (snd o dest_comb o snd o dest_eq o concl) t;
-val exp = (snd o dest_eq o concl o (SIMP_CONV (srw_ss()) [])) ``^s1.MEM``;
-tc_exp_arm8 exp;
-
-
-
-(*   10:   b90007e3        str     w3, [sp,#4] *)
-val [t] = arm8_step_hex "b90007e3";
+(*   14:   b9003bff        str     wzr, [sp,#56] *)
+val [t] = arm8_step_hex "b9003bff";
 val upds = ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) t);
 val exp = snd(List.nth(upds, 2));
 tc_exp_arm8 exp;
@@ -204,11 +191,21 @@ val prefix = "";
 val ae = exp;
 val (o1, o2, o3) = extract_operands ae;
 val f0 = extract_fun ae;
+
+val conv_th = SIMP_CONV (bool_ss) [Once normalize_32_bit_zero_write_thm] ae;
+val exp1 = (snd o dest_eq o concl) conv_th;
+tc_exp_arm8 exp1;
+
+
 val (i, _) = match_term ``
-((ha + 3w:word64 =+ (31 >< 24) (hv:word32))
-    ((ha + 2w =+ (23 >< 16) hv)
-       ((ha + 1w =+ (15 >< 8) hv)
-          ((ha =+ (7 >< 0) hv) (hm:word64->word8)))))`` ae;
+((ha + 3w:word64 =+ c1:word8)
+    ((ha + 2w =+ c2:word8)
+       ((ha + 1w =+ c3:word8)
+          ((ha =+ (7 >< 0) hv) c4:word8))))`` ae;
+
+
+
+(((c1:word8 @@ c2:word8):word16 @@ c3:word8):word24 @@ c4:word8):word32``;
 
 val exp = ``(w2w ((s :arm8_state).REG (3w :word5)) :word32)``;
 tc_exp_arm8 exp;

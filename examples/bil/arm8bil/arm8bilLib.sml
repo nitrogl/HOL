@@ -1101,6 +1101,22 @@ val bool_cast_simpl_tm = prove (``!e.(case if e then Reg1 (1w :word1) else Reg1 
 (* prevent >>>~ to become >>> *)
 val myss = simpLib.remove_ssfrags (srw_ss()) ["word shift"];
 
+val normalize_32_bit_zero_write_thm = prove(``
+!ha hm .
+((ha + 3w:word64 =+ 0w:word8)
+    ((ha + 2w =+ 0w:word8)
+       ((ha + 1w =+ 0w:word8)
+          ((ha =+ 0w:word8) (hm:word64->word8)))))
+ =
+((ha + 3w =+ ((31 >< 24) (0w:word32)))
+    ((ha + 2w =+ ((23 >< 16) (0w:word32)))
+       ((ha + 1w =+ ((15 >< 8) (0w:word32)))
+          ((ha =+ ((7 >< 0) (0w:word32)))
+        (hm:word64->word8)))))
+``,
+  FULL_SIMP_TAC (srw_ss()) []
+);
+
 
 (* Transcompiler arm8 expressions to BIL model expressions *)
 fun tc_exp_arm8_prefix ae prefix =
@@ -1338,10 +1354,28 @@ fun tc_exp_arm8_prefix ae prefix =
 		 val (be1, ae1, thm1) = (``(Den "arm8_state_MEM")``, (subst i ``hm:word64->word8``), GEN_ENV access_tm);
 		 val (be2, ae2, thm2) = (tce (subst i ``ha:word64``));
 		 val (be3, ae3, thm3) = (tce (subst i ``hv:word32``));
-		 (* val thImp = mem_dword_write_tm; *)
+		 val thImp = mem_word_write_tm;
+		 val mp = (GEN_ALL o DISCH_ALL) (MP_ITE thImp (be1, ae1, thm1) (be2, ae2, thm2) (be3, ae3, thm3));
+		 val be = List.nth ((snd o strip_comb o fst o dest_conj o snd o dest_exists o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+		 val be = List.nth ((snd o strip_comb) be, 0);
 	     in
-		 raise DebugEx "32-bit store"
-	     end))
+		 (be, ae, mp)
+	     end)
+	     handle _ =>
+             (* patch to support writes of zero *)
+             (let val new_exp_thm = (SIMP_CONV (bool_ss) [normalize_32_bit_zero_write_thm] ae)
+      		  val ae0 = (fst o dest_eq o concl) new_exp_thm
+      		  val ae1 = (snd o dest_eq o concl) new_exp_thm
+		  val t1 = MP_UN eq_trans_on_env_tm (tce ae1)
+		  val t1_gen_v3 = GEN ``v3:bool`` t1
+		  val t1_on_ae0 = SPEC ae0 t1_gen_v3
+		  val t2 = MP t1_on_ae0 (SYM new_exp_thm)
+		  val mp = (GEN_ALL o DISCH_ALL) t2
+		  val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0)
+      	      in
+		  (be, ae, mp)
+              end)
+	    )
 	else
 	    raise UnsupportedARM8ExpressionException ae
       end;

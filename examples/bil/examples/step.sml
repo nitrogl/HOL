@@ -739,7 +739,7 @@ tc_one_instruction2_by_bin "b90007e3";
 
 (*   14:   b9003bff        str     wzr, [sp,#56] *)
 tc_one_instruction2_by_bin "b9003bff";
-(* "raw_match_term error", origin_structure = "Term"} raised *)
+(* OK *)
 
 (*   18:   14000009        b       3c <internal_mul+0x3c> *)
 tc_one_instruction2_by_bin "14000009";
@@ -771,11 +771,11 @@ tc_one_instruction2_by_bin "b9403be0";
 
 (*   34:   11000400        add     w0, w0, #0x1 *)
 tc_one_instruction2_by_bin "11000400";
-(* w2w unsupported: 32bit *)
+(* OK *)
 
 (*   38:   b9003be0        str     w0, [sp,#56] *)
 tc_one_instruction2_by_bin "b9003be0";
-(* 4 byte store unsupported *)
+(* OK *)
 
 (*   3c:   b94007e0        ldr     w0, [sp,#4] *)
 tc_one_instruction2_by_bin "b94007e0";
@@ -791,4 +791,4 @@ tc_one_instruction2_by_bin "b9403be0";
 
 (*   48:   6b00003f        cmp     w1, w0 *)
 tc_one_instruction2_by_bin "6b00003f";
-(* w2w unsupported: 32bit *)
+(* OK, even if in CMP we are currently cheating *)
