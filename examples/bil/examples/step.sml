@@ -96,6 +96,7 @@ fun tc_gen_goal p certs step =
          ((env "R0") = (Reg Bit64, Int (Reg64 (s.REG 0w)))) /\
          ((env "R1") = (Reg Bit64, Int (Reg64 (s.REG 1w)))) /\
          ((env "R2") = (Reg Bit64, Int (Reg64 (s.REG 2w)))) /\
+         ((env "R3") = (Reg Bit64, Int (Reg64 (s.REG 3w)))) /\
          ((env "R30") = (Reg Bit64, Int (Reg64 (s.REG 30w)))) /\
          ((env "ProcState_C") = (Reg Bit1, Int (bool2b s.PSTATE.C))) /\
          ((env "ProcState_N") = (Reg Bit1, Int (bool2b s.PSTATE.N))) /\
@@ -106,6 +107,7 @@ fun tc_gen_goal p certs step =
          (?v.((env "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R2") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((env "tmp_R3") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_ProcState_C") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((env "tmp_ProcState_N") = (Reg Bit1, Int (Reg1 (v))))) /\
@@ -131,6 +133,7 @@ fun tc_gen_goal p certs step =
          ((bs1.environ "R0") = (Reg Bit64, Int (Reg64 (s1.REG 0w)))) /\
          ((bs1.environ "R1") = (Reg Bit64, Int (Reg64 (s1.REG 1w)))) /\
          ((bs1.environ "R2") = (Reg Bit64, Int (Reg64 (s1.REG 2w)))) /\
+         ((bs1.environ "R3") = (Reg Bit64, Int (Reg64 (s1.REG 3w)))) /\
          ((bs1.environ "R30") = (Reg Bit64, Int (Reg64 (s1.REG 30w)))) /\
          ((bs1.environ "ProcState_C") = (Reg Bit1, Int (bool2b s1.PSTATE.C))) /\
          ((bs1.environ "ProcState_N") = (Reg Bit1, Int (bool2b s1.PSTATE.N))) /\
@@ -141,6 +144,7 @@ fun tc_gen_goal p certs step =
          (?v.((bs1.environ "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R2") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((bs1.environ "tmp_R3") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_ProcState_C") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((bs1.environ "tmp_ProcState_N") = (Reg Bit1, Int (Reg1 (v))))) /\
@@ -367,6 +371,14 @@ val single_step_assign_mem64_thm = prove( ``
 );
 
 
+
+
+
+
+
+
+
+
 fun ONE_EXEC2 certs i =
 
 (fn (asl,curr_goal) =>
@@ -397,8 +409,15 @@ let val exec_term = (fst o dest_eq o fst o dest_imp) curr_goal;
         else
           let val value = (snd o dest_comb o snd o dest_eq o snd o dest_forall o snd o dest_conj o snd o dest_exists o concl) th_just4;
               val value = ``\a.^value``;
+  	      (* we extract the type of the write *)
+	      val store_value_eq = (fst o dest_conj o snd o dest_exists o concl) th_just4;
+	      val store_exp = (hd o snd o strip_comb o fst o dest_eq) store_value_eq;
+	      val store_type = (hd o rev o snd o strip_comb) store_exp;
           in
-            (single_step_assign_mem64_thm, value)
+	      if store_type = ``Bit64`` then
+		  (single_step_assign_mem64_thm, value)
+	      else
+		  (single_step_assign_mem64_thm, value)
           end
     val th1 = SPECL [env, ex, vname, exp, value, ``Label "main"``, steps] single_assign_th;
     val th2 = (SPECL [sts, numSyntax.mk_numeral(Arbnum.fromInt (i-1))]) th1;
@@ -426,11 +445,20 @@ in
 	       THEN (SIMP_TAC (srw_ss()) []))
      ))
      THENL [
+          (fn (asl,goal) =>
           (MAP_EVERY (fn tm => if List.exists (fn tm1 => tm1 = tm) asl
                               then ALL_TAC
-                              else ALL_TAC)
+  			      (* This is probably a memory *)
+                              else if (is_exists tm) then
+				  (SUBGOAL_THEN tm (fn thm => ASSUME_TAC thm))
+				  THENL [
+				    (FULL_SIMP_TAC (srw_ss()) []),
+				    ALL_TAC
+				  ]
+			      else ALL_TAC
+		     )
                     (hyp th_just4)
-          )
+          )(asl,goal))
           THEN (ASSUME_TAC th_just4)
 	  THEN (fn (asl,goal) =>
                (MAP_EVERY (fn tm =>
@@ -585,6 +613,9 @@ ALL_TAC
 val inst = `STR X1, [X0]`;
 val code = arm8AssemblerLib.arm8_code inst;
 val instr = (hd code);
+
+(*   10:   b90007e3        str     w3, [sp,#4] *)
+val instr = "b90007e3";
 (* 2.11 seconds *)
 val (p, certs, [step]) = tc_stmt_arm8_hex instr;
 
@@ -634,19 +665,22 @@ val curr_goal = ``
        [<|label := Label "main";
           statements :=
             [Assign "tmp_arm8_state_PC" (Den "arm8_state_PC");
-             Assign "tmp_R0" (Den "R0"); Assign "tmp_R1" (Den "R1");
+             Assign "tmp_arm8_state_SP_EL0" (Den "arm8_state_SP_EL0");
+             Assign "tmp_R3" (Den "R3");
              Assign "arm8_state_PC"
                (Plus (Den "tmp_arm8_state_PC") (Const (Reg64 4w)));
              Assign "arm8_state_MEM"
                (Store (Den "arm8_state_MEM")
-                  (Plus (Den "tmp_R0") (Const (Reg64 0w)))
-                  (Den "tmp_R1") (Const (Reg1 0w)) Bit64)]|>];
+                  (Plus (Den "tmp_arm8_state_SP_EL0")
+                     (Const (Reg64 4w))) (LowCast (Den "tmp_R3") Bit32)
+                  (Const (Reg1 0w)) Bit32)]|>];
      environ :=
        (λc.
           if "arm8_state_PC" = c then
             (Reg Bit64,Int (Reg64 (s.PC + 4w)))
-          else if "tmp_R1" = c then (Reg Bit64,Int (Reg64 (s.REG 1w)))
-          else if "tmp_R0" = c then (Reg Bit64,Int (Reg64 (s.REG 0w)))
+          else if "tmp_R3" = c then (Reg Bit64,Int (Reg64 (s.REG 3w)))
+          else if "tmp_arm8_state_SP_EL0" = c then
+            (Reg Bit64,Int (Reg64 s.SP_EL0))
           else if "tmp_arm8_state_PC" = c then
             (Reg Bit64,Int (Reg64 s.PC))
           else env c); termcode := Unknown; debug := d1;
@@ -655,24 +689,29 @@ val curr_goal = ``
 (bs1.environ "" = (NoType,Unknown)) ∧
 (bs1.environ "R0" = (Reg Bit64,Int (Reg64 (s1.REG 0w)))) ∧
 (bs1.environ "R1" = (Reg Bit64,Int (Reg64 (s1.REG 1w)))) ∧
+(bs1.environ "R2" = (Reg Bit64,Int (Reg64 (s1.REG 2w)))) ∧
+(bs1.environ "R3" = (Reg Bit64,Int (Reg64 (s1.REG 3w)))) ∧
 (bs1.environ "R30" = (Reg Bit64,Int (Reg64 (s1.REG 30w)))) ∧
 (bs1.environ "ProcState_C" = (Reg Bit1,Int (bool2b s1.PSTATE.C))) ∧
 (bs1.environ "ProcState_N" = (Reg Bit1,Int (bool2b s1.PSTATE.N))) ∧
 (bs1.environ "ProcState_V" = (Reg Bit1,Int (bool2b s1.PSTATE.V))) ∧
 (bs1.environ "ProcState_Z" = (Reg Bit1,Int (bool2b s1.PSTATE.Z))) ∧
 (bs1.environ "arm8_state_PC" = (Reg Bit64,Int (Reg64 s1.PC))) ∧
+(bs1.environ "arm8_state_SP_EL0" = (Reg Bit64,Int (Reg64 s1.SP_EL0))) ∧
 (∃v. bs1.environ "tmp_R0" = (Reg Bit64,Int (Reg64 v))) ∧
 (∃v. bs1.environ "tmp_R1" = (Reg Bit64,Int (Reg64 v))) ∧
+(∃v. bs1.environ "tmp_R2" = (Reg Bit64,Int (Reg64 v))) ∧
+(∃v. bs1.environ "tmp_R3" = (Reg Bit64,Int (Reg64 v))) ∧
 (∃v. bs1.environ "tmp_R30" = (Reg Bit64,Int (Reg64 v))) ∧
 (∃v. bs1.environ "tmp_ProcState_C" = (Reg Bit1,Int (Reg1 v))) ∧
 (∃v. bs1.environ "tmp_ProcState_N" = (Reg Bit1,Int (Reg1 v))) ∧
 (∃v. bs1.environ "tmp_ProcState_V" = (Reg Bit1,Int (Reg1 v))) ∧
 (∃v. bs1.environ "tmp_ProcState_Z" = (Reg Bit1,Int (Reg1 v))) ∧
 (∃v. bs1.environ "tmp_arm8_state_PC" = (Reg Bit64,Int (Reg64 v))) ∧
+(∃v. bs1.environ "tmp_arm8_state_SP_EL0" = (Reg Bit64,Int (Reg64 v))) ∧
 ∃m.
   (bs1.environ "arm8_state_MEM" = (MemByte Bit64,Mem Bit64 m)) ∧
-  ∀a. m (Reg64 a) = Reg8 (s1.MEM a)
-  ``;
+  ∀a. m (Reg64 a) = Reg8 (s1.MEM a)  ``;
 
 
 
@@ -692,15 +731,15 @@ tc_one_instruction2_by_bin "f9000be1";
 
 (*    c:   f90007e2        str     x2, [sp,#8] *)
 tc_one_instruction2_by_bin "f90007e2";
-(* Register X2 unsupported *)
+(* OK *)
 
 (*   10:   b90007e3        str     w3, [sp,#4] *)
 tc_one_instruction2_by_bin "b90007e3";
-(* 4 byte store unsupported *)
+(* OK *)
 
 (*   14:   b9003bff        str     wzr, [sp,#56] *)
 tc_one_instruction2_by_bin "b9003bff";
-(* 4 byte store unsupported *)
+(* "raw_match_term error", origin_structure = "Term"} raised *)
 
 (*   18:   14000009        b       3c <internal_mul+0x3c> *)
 tc_one_instruction2_by_bin "14000009";

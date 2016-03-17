@@ -194,29 +194,44 @@ tc_exp_arm8 exp;
 
 
 
+(*   10:   b90007e3        str     w3, [sp,#4] *)
+val [t] = arm8_step_hex "b90007e3";
+val upds = ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) t);
+val exp = snd(List.nth(upds, 2));
+tc_exp_arm8 exp;
 
-val [[t]] = arm8_step_code `sub     sp, sp, #0x40`;
-val [[t]] = arm8_step_code `str     x0, [sp,#24]`;
-val [[t]] = arm8_step_code `str     w3, [sp,#4]`;
-val [[t]] = arm8_step_code `str     wzr, [sp,#56]`;
-val [[t]] = arm8_step_code `b       3c`;
-arm8_step_hex "14000009";
-val [[t]] = arm8_step_code `ldrsw   x0, [sp,#56]`;
-val [[t]] = arm8_step_code `lsl     x0, x0, #1`;
+val prefix = "";
+val ae = exp;
+val (o1, o2, o3) = extract_operands ae;
+val f0 = extract_fun ae;
+val (i, _) = match_term ``
+((ha + 3w:word64 =+ (31 >< 24) (hv:word32))
+    ((ha + 2w =+ (23 >< 16) hv)
+       ((ha + 1w =+ (15 >< 8) hv)
+          ((ha =+ (7 >< 0) hv) (hm:word64->word8)))))`` ae;
 
-arm8_step_hex "54fffe8c";
-val [[t]] = arm8_step_code `ret`;
+val exp = ``(w2w ((s :arm8_state).REG (3w :word5)) :word32)``;
+tc_exp_arm8 exp;
+
+val ae = exp;
+val (o1, o2, o3) = extract_operands ae;
+val f0 = extract_fun ae;
+
+val (operator,size) = (((fst o strip_comb) ae), (word_size o1));
+val constr = fst (List.nth (List.filter (fn (_, s) => s = size) constructor_size_pairs, 0));
+
+val uopTuples = [(fn s => (fst o strip_comb) ``(w2w ^(nw 0 s)):word32``, fn s => ``LowCast bx Bit32``, BIL_OP_TAC)];
+val g1 = map goalgenerator_uop  (prod constructor_size_pairs uopTuples);
+
+
+(select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1));
+
+val mp = (GEN_ALL o DISCH_ALL) (MP_UN (select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1)) (tce o1))
 
 
 
-   0:   d10103ff        sub     sp, sp, #0x40
-   4:   f9000fe0        str     x0, [sp,#24]
-   8:   f9000be1        str     x1, [sp,#16]
-   c:   f90007e2        str     x2, [sp,#8]
-  10:   b90007e3        str     w3, [sp,#4]
-  14:   b9003bff        str     wzr, [sp,#56]
-  18:   14000009        b       3c <internal_mul+0x3c>
-  1c:   b9803be0        ldrsw   x0, [sp,#56]
-  20:   d37ff800        lsl     x0, x0, #1
-  24:   f94007e1        ldr     x1, [sp,#8]
-  28:   8b000020        add     x0, x1, x0
+val [t] = arm8_step_hex "f9000be1";
+val upds = ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) t);
+val exp = snd(List.nth(upds, 2));
+tc_exp_arm8 exp;
+

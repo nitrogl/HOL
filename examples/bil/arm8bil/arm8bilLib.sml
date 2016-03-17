@@ -31,6 +31,7 @@ exception UnsupportedWordSizeException;
 exception UnsupportedARM8ExpressionException of term;
 exception ArgumentException of string;
 exception UnsupportedARM8StateField of string;
+exception DebugEx of string;
 
 (* ------------------------------------------------------------------------- *)
 (*  Misc tools                                                               *)
@@ -743,6 +744,55 @@ val mem_dword_write_tm = prove(``^goal``,
 	  THEN (FULL_SIMP_TAC (srw_ss()) [])
       );
 
+val goal = ``∀env hm ha hv bm ba bv .
+   (?m.
+   ((bil_eval_exp bm env = Mem Bit64 m) /\
+   (!a. (m (Reg64 a)) = (Reg8 (hm a)))
+   )) /\
+   (bil_eval_exp ba env = Int (Reg64 ha)) /\
+   (bil_eval_exp bv env = Int (Reg32 hv))
+   ==>
+   (?m.
+   (((bil_eval_exp (Store bm ba bv (Const (Reg1 0w)) Bit32) env) = Mem Bit64 m) /\
+   (!a. (m (Reg64 a)) = (Reg8 (
+             ((ha + 3w =+ (31 >< 24) hv)
+                ((ha + 2w =+ (23 >< 16) hv)
+                   ((ha + 1w =+ (15 >< 8) hv)
+                      ((ha =+ (7 >< 0) hv) (hm:word64->word8)))))
+    a)))
+   ))``;
+val mem_word_write_tm = prove(``^goal``,
+	  (RW_TAC (srw_ss()) [])
+	  THEN (BIL_DEN_TAC)
+	  (* the memory access get stuck since we do not know the
+	  value of the endianness *)
+	  THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def, n2b_1_def, n2bs_def])
+	  (* we first open the cast *)
+	  THEN (SIMP_TAC (srw_ss()) [bil_lcast_def, bil_hcast_def, bil_cast_def])
+	  THEN (SIMP_TAC (srw_ss()) [bil_add_def])
+	  THEN (RW_TAC (srw_ss()) [])
+          THEN (FULL_SIMP_TAC (srw_ss()) [combinTheory.UPDATE_def])
+          THEN (Cases_on `(a :word64) = (ha :word64)`)
+	  THENL [
+	    (FULL_SIMP_TAC (srw_ss()) [])
+            THEN (MAP_EVERY (fn v => 
+		(FULL_SIMP_TAC (srw_ss()) [blastLib.BBLAST_PROVE ``ha + (^v :word64) <> ha``])
+	        ) (List.take (seven_word_list,3)))
+	    ,
+	    ALL_TAC
+	  ]
+          THEN (EVERY 
+		    (map (fn v => 
+			     (FULL_SIMP_TAC (srw_ss()) [])
+			     THEN (Cases_on `a = (ha :word64) + (^v :word64)`)
+			     THENL [
+			       (FULL_SIMP_TAC (srw_ss()) []) THEN (blastLib.BBLAST_TAC),
+			       ALL_TAC]
+               ) (List.take (seven_word_list,3))))
+	  THEN (FULL_SIMP_TAC (srw_ss()) [])
+      );
+
+
 (* ------------------------------------------------------------------------- *)
 (*   BIT Theorem : definitions                                                *)
 (* ------------------------------------------------------------------------- *)
@@ -986,7 +1036,15 @@ val bil_op_tms =
       ];
   in
     (* And now batch proofs... *)
-    map (fn (abop, bop, tac, br, g) => (abop, bop, br, tryprove (g, tac))) goals
+    (map (fn (abop, bop, tac, br, g) => (abop, bop, br, tryprove (g, tac))) goals) @
+    [
+      (``(w2w :word64 -> word32)``,  ``LowCast (bx :bil_exp_t) Bit32``, ``Reg64``,
+       prove(``∀(env :environment) (x :word64) (bx :bil_exp_t).
+	       (bil_eval_exp bx env = Int (Reg64 x)) ⇒
+	       (bil_eval_exp (LowCast bx Bit32) env =
+		Int (Reg32 (w2w x :word32)))``, BIL_OP_TAC))
+     ]
+    (* Manual proofs *)
   end
 ;
 
@@ -1248,7 +1306,7 @@ fun tc_exp_arm8_prefix ae prefix =
 		(be, ae, mp)
 	    end
 	else if (type_of ae) = ``:word64->word8`` then
-	    (let 
+	    ((let 
 		 val (i, _) = match_term ``
 ((ha + 7w:word64 =+ (63 >< 56) (hv:word64))
     ((ha + 6w =+ (55 >< 48) hv)
@@ -1269,7 +1327,21 @@ fun tc_exp_arm8_prefix ae prefix =
 	     in
 		 (be, ae, mp)
 	     end)
-	    handle _ => raise UnsupportedARM8ExpressionException ae
+	    handle _ => 
+	    (let 
+		 val (i, _) = match_term ``
+((ha + 3w:word64 =+ (31 >< 24) (hv:word32))
+    ((ha + 2w =+ (23 >< 16) hv)
+       ((ha + 1w =+ (15 >< 8) hv)
+          ((ha =+ (7 >< 0) hv) (hm:word64->word8)))))`` ae
+		 val access_tm = ((SPECL [``"arm8_state_MEM"``, ``MemByte Bit64``, (subst i ``hm:word64->word8``)] o SPEC_ENV) arm8_to_bil_den_mem_tm);
+		 val (be1, ae1, thm1) = (``(Den "arm8_state_MEM")``, (subst i ``hm:word64->word8``), GEN_ENV access_tm);
+		 val (be2, ae2, thm2) = (tce (subst i ``ha:word64``));
+		 val (be3, ae3, thm3) = (tce (subst i ``hv:word32``));
+		 (* val thImp = mem_dword_write_tm; *)
+	     in
+		 raise DebugEx "32-bit store"
+	     end))
 	else
 	    raise UnsupportedARM8ExpressionException ae
       end;
