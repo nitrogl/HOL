@@ -187,6 +187,9 @@ val upds = ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o c
 val exp = snd(List.nth(upds, 2));
 tc_exp_arm8 exp;
 
+tc_exp_arm8  ``mem_word s.MEM (s.SP_EL0 + 56w)``;
+
+
 val prefix = "";
 val ae = exp;
 val (o1, o2, o3) = extract_operands ae;

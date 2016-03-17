@@ -654,6 +654,32 @@ val mem_dword_2exp64_tm = tryprove(
       THEN (blastLib.BBLAST_TAC)
 );
 
+val mem_word_2exp32_tm = tryprove(
+    ``∀env y x by bx .
+   (?m.
+   ((bil_eval_exp by env = Mem Bit64 m) /\
+   (!a. (m (Reg64 a)) = (Reg8 (y a)))
+   )) /\
+   (bil_eval_exp bx env = Int (Reg64 x))
+   ==>
+   ((bil_eval_exp (Load by bx (Const (Reg1 0w)) Bit32) env) = (Int (Reg32 (mem_word y x))))``,
+    (RW_TAC (srw_ss()) [])
+      THEN (BIL_DEN_TAC)
+      (* the memory access get stuck since we do not know the value of the endianness *)
+      THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def, n2b_1_def, n2bs_def])
+      (* we first open the cast *)
+      THEN (SIMP_TAC (srw_ss()) [bil_cast_def])
+      (* We apply the + definition so we can show that the memory accesses yield always a byte *)
+      THEN (SIMP_TAC (srw_ss()) [bil_add_def])
+      THEN (FULL_SIMP_TAC (srw_ss()) [])
+      (* we first open the shift *)
+      THEN (SIMP_TAC (srw_ss()) [bil_lsl_def, n2b_32_def, n2bs_def])
+      (* we first open the or *)
+      THEN (SIMP_TAC (srw_ss()) [bil_or_def])
+      THEN (SIMP_TAC (srw_ss()) [mem_word_def])
+      THEN (blastLib.BBLAST_TAC)
+);
+
 val carry_thm = prove (``!e v. 
         ((if e < 18446744073709551616 then e 
 	  else e MOD 18446744073709551616) <>
@@ -1321,6 +1347,16 @@ fun tc_exp_arm8_prefix ae prefix =
 	    in
 		(be, ae, mp)
 	    end
+	(* Memory access word based *)
+	else if (f0 = ``mem_word``) then
+	    let
+		val access_tm = ((SPECL [``"arm8_state_MEM"``, ``MemByte Bit64``, o1] o SPEC_ENV) arm8_to_bil_den_mem_tm)
+		val tce_o1 = (``(Den "arm8_state_MEM")``, o1, GEN_ENV access_tm)
+		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN mem_word_2exp32_tm tce_o1 (tce o2));
+		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+	    in
+		(be, ae, mp)
+	    end
 	else if (type_of ae) = ``:word64->word8`` then
 	    ((let 
 		 val (i, _) = match_term ``
@@ -1366,12 +1402,10 @@ fun tc_exp_arm8_prefix ae prefix =
              (let val new_exp_thm = (SIMP_CONV (bool_ss) [normalize_32_bit_zero_write_thm] ae)
       		  val ae0 = (fst o dest_eq o concl) new_exp_thm
       		  val ae1 = (snd o dest_eq o concl) new_exp_thm
-		  val t1 = MP_UN eq_trans_on_env_tm (tce ae1)
-		  val t1_gen_v3 = GEN ``v3:bool`` t1
-		  val t1_on_ae0 = SPEC ae0 t1_gen_v3
-		  val t2 = MP t1_on_ae0 (SYM new_exp_thm)
-		  val mp = (GEN_ALL o DISCH_ALL) t2
-		  val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0)
+		  val (be, ae, mp) = (tce ae1);
+		  val mp = (SPEC_ALL) mp;
+		  val mp = SIMP_RULE (bool_ss) [SYM new_exp_thm] mp;
+		  val mp = GEN_ALL mp
       	      in
 		  (be, ae, mp)
               end)

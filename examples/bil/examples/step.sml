@@ -747,7 +747,7 @@ tc_one_instruction2_by_bin "14000009";
 
 (*   1c:   b9803be0        ldrsw   x0, [sp,#56] *)
 tc_one_instruction2_by_bin "b9803be0";
-(* 4 byte load unsupported *)
+(* OK *)
 
 (*   20:   d37ff800        lsl     x0, x0, #1 *)
 tc_one_instruction2_by_bin "d37ff800";
