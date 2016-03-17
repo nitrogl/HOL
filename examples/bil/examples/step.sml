@@ -101,6 +101,7 @@ fun tc_gen_goal p certs step =
          ((env "ProcState_V") = (Reg Bit1, Int (bool2b s.PSTATE.V))) /\
          ((env "ProcState_Z") = (Reg Bit1, Int (bool2b s.PSTATE.Z))) /\
          ((env "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s.PC)))) /\
+         ((env "arm8_state_SP_EL0") = (Reg Bit64, Int (Reg64 (s.SP_EL0)))) /\
          (?v.((env "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
@@ -109,6 +110,7 @@ fun tc_gen_goal p certs step =
          (?v.((env "tmp_ProcState_V") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((env "tmp_ProcState_Z") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((env "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((env "tmp_arm8_state_SP_EL0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?m. (env "arm8_state_MEM" = (MemByte Bit64,Mem Bit64 m)) /\
 	      (!a. m (Reg64 a) = Reg8 (s.MEM a)))
         ) ==>
@@ -132,6 +134,7 @@ fun tc_gen_goal p certs step =
          ((bs1.environ "ProcState_V") = (Reg Bit1, Int (bool2b s1.PSTATE.V))) /\
          ((bs1.environ "ProcState_Z") = (Reg Bit1, Int (bool2b s1.PSTATE.Z))) /\
          ((bs1.environ "arm8_state_PC") = (Reg Bit64, Int (Reg64 (s1.PC)))) /\
+         ((bs1.environ "arm8_state_SP_EL0") = (Reg Bit64, Int (Reg64 (s1.SP_EL0)))) /\
          (?v.((bs1.environ "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
@@ -140,6 +143,7 @@ fun tc_gen_goal p certs step =
          (?v.((bs1.environ "tmp_ProcState_V") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((bs1.environ "tmp_ProcState_Z") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((bs1.environ "tmp_arm8_state_PC") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((bs1.environ "tmp_arm8_state_SP_EL0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?m. (bs1.environ "arm8_state_MEM" = (MemByte Bit64,Mem Bit64 m)) /\
 	      (!a. m (Reg64 a) = Reg8 (s1.MEM a)))
         )``
@@ -475,10 +479,8 @@ end
 
 ;
 
-fun tc_one_instruction2 inst =
-    let val code = arm8AssemblerLib.arm8_code inst;
-	val instr = (hd code);
-	val (p, certs, [step]) = tc_stmt_arm8_hex instr;
+fun tc_one_instruction2_by_bin instr =
+    let val (p, certs, [step]) = tc_stmt_arm8_hex instr;
 	val goal = tc_gen_goal p certs step;
 	val thm = prove(``^goal``,
 			(DISCH_TAC) THEN (DISCH_TAC) THEN (DISCH_TAC)
@@ -495,6 +497,13 @@ fun tc_one_instruction2 inst =
 		       );
     in
 	thm
+    end;
+
+fun tc_one_instruction2 inst =
+    let val code = arm8AssemblerLib.arm8_code inst;
+	val instr = (hd code);
+    in
+	tc_one_instruction2_by_bin instr
     end;
 
 
@@ -661,3 +670,83 @@ val curr_goal = ``
   ∀a. m (Reg64 a) = Reg8 (s1.MEM a)
   ``;
 
+
+
+
+(* 0000000000000000 <internal_mul>: *)
+(*    0:   d10103ff        sub     sp, sp, #0x40 *)
+tc_one_instruction2_by_bin "d10103ff";
+val instr = "d10103ff";
+(* OK *)
+
+(*    4:   f9000fe0        str     x0, [sp,#24] *)
+tc_one_instruction2_by_bin "f9000fe0";
+(* OK *)
+
+(*    8:   f9000be1        str     x1, [sp,#16] *)
+tc_one_instruction2_by_bin "f9000be1";
+(* OK *)
+
+(*    c:   f90007e2        str     x2, [sp,#8] *)
+tc_one_instruction2_by_bin "f90007e2";
+(* Register X2 unsupported *)
+
+(*   10:   b90007e3        str     w3, [sp,#4] *)
+tc_one_instruction2_by_bin "b90007e3";
+(* 4 byte store unsupported *)
+
+(*   14:   b9003bff        str     wzr, [sp,#56] *)
+tc_one_instruction2_by_bin "b9003bff";
+(* 4 byte store unsupported *)
+
+(*   18:   14000009        b       3c <internal_mul+0x3c> *)
+tc_one_instruction2_by_bin "14000009";
+(* OK *)
+
+(*   1c:   b9803be0        ldrsw   x0, [sp,#56] *)
+tc_one_instruction2_by_bin "b9803be0";
+(* 4 byte load unsupported *)
+
+(*   20:   d37ff800        lsl     x0, x0, #1 *)
+tc_one_instruction2_by_bin "d37ff800";
+(* `<>` unsupported *)
+
+(*   24:   f94007e1        ldr     x1, [sp,#8] *)
+tc_one_instruction2_by_bin "f94007e1";
+(* OK *)
+
+(*   28:   8b000020        add     x0, x1, x0 *)
+tc_one_instruction2_by_bin "8b000020";
+(* OK *)
+
+(*   2c:   7900001f        strh    wzr, [x0] *)
+tc_one_instruction2_by_bin "7900001f";
+(* 2 byte store unsupported *)
+
+(*   30:   b9403be0        ldr     w0, [sp,#56] *)
+tc_one_instruction2_by_bin "b9403be0";
+(* 4 byte load unsupported *)
+
+(*   34:   11000400        add     w0, w0, #0x1 *)
+tc_one_instruction2_by_bin "11000400";
+(* w2w unsupported: 32bit *)
+
+(*   38:   b9003be0        str     w0, [sp,#56] *)
+tc_one_instruction2_by_bin "b9003be0";
+(* 4 byte store unsupported *)
+
+(*   3c:   b94007e0        ldr     w0, [sp,#4] *)
+tc_one_instruction2_by_bin "b94007e0";
+(* 4 byte load unsupported *)
+
+(*   40:   531f7801        lsl     w1, w0, #1 *)
+tc_one_instruction2_by_bin "531f7801";
+(* `<>` unsupported: 32 bit *)
+
+(*   44:   b9403be0        ldr     w0, [sp,#56] *)
+tc_one_instruction2_by_bin "b9403be0";
+(* 4 byte load unsupported *)
+
+(*   48:   6b00003f        cmp     w1, w0 *)
+tc_one_instruction2_by_bin "6b00003f";
+(* w2w unsupported: 32bit *)
