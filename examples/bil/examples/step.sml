@@ -10,7 +10,7 @@ open arm8_stepLib;
 open proofTools arithTheory;
 open bilTheory arm8bilTheory;
 open arm8bilLib;
-open arm8stepbilLib;
+(* open arm8stepbilLib; *)
 HOL_Interactive.toggle_quietdec();
 
 
@@ -359,8 +359,8 @@ val single_step_assign_mem64_thm = prove( ``
 );
 
 
-
 fun ONE_EXEC2 certs i =
+
 (fn (asl,curr_goal) =>
 let val exec_term = (fst o dest_eq o fst o dest_imp) curr_goal;
     val (_, [state, steps]) = strip_comb exec_term;
@@ -393,28 +393,87 @@ let val exec_term = (fst o dest_eq o fst o dest_imp) curr_goal;
             (single_step_assign_mem64_thm, value)
           end
     val th1 = SPECL [env, ex, vname, exp, value, ``Label "main"``, steps] single_assign_th;
-    val simp1 = (SIMP_RULE (srw_ss()) [] th1);
+    val th2 = (SPECL [sts, numSyntax.mk_numeral(Arbnum.fromInt (i-1))]) th1;
+    val lbl_not_empty_thm = prove(``^((fst o dest_imp o concl) th2)``, (FULL_SIMP_TAC (srw_ss()) []));
+    val length_minus_i_not_zero_thm = prove(``^((fst o dest_imp o snd o dest_imp o concl) th2)``, (FULL_SIMP_TAC (arith_ss) []));
+    (* val simp2 = (SIMP_RULE (srw_ss()) [] th2); *)
     val hd_thm = prove (``(EL ^(numSyntax.mk_numeral(Arbnum.fromInt(i-1))) ^sts = Assign ^vname ^exp)``, (FULL_SIMP_TAC (srw_ss()) []));
     val length_thm = prove (``(LENGTH ^sts >= ^(numSyntax.mk_numeral(Arbnum.fromInt(i-1)))+1)``, (FULL_SIMP_TAC (srw_ss()) []));
-    val th2 = (SPECL [sts, numSyntax.mk_numeral(Arbnum.fromInt (i-1))]) simp1;
-    val th3 = (MP (MP th2 hd_thm) length_thm);
+    val th3 = (MP (MP (MP (MP th2 lbl_not_empty_thm) length_minus_i_not_zero_thm) hd_thm) length_thm);
+    val th4 = UNDISCH_ALL th3;
 in
     (
+     (* We prove the big theorem and we use it for the substitution *)
+     (SUBGOAL_THEN (concl th4) (fn thm =>
+           (* we are probably handling a memory update *)
+           if ((is_exists o concl) thm) then
+               ((CHOOSE_TAC thm)
+		THEN (FULL_SIMP_TAC (srw_ss()) [])
+		(* we should not remove the additional assumption *)
+		(* that guarantee constraint the content of the memory *)
+		THEN (PAT_ASSUM ``bil_exec_step_n a b = c`` (fn thm => ALL_TAC))
+	       )
+	   else
+	      ((REWRITE_TAC [thm])
+	       THEN (SIMP_TAC (srw_ss()) []))
+     ))
+     THENL [
+          (MAP_EVERY (fn tm => if List.exists (fn tm1 => tm1 = tm) asl
+                              then ALL_TAC
+                              else ALL_TAC)
+                    (hyp th_just4)
+          )
+          THEN (ASSUME_TAC th_just4)
+	  THEN (fn (asl,goal) =>
+               (MAP_EVERY (fn tm =>
+                              (* The hypotesis is in the assumptions *)
+                              if List.exists (fn tm1 => tm1 = tm) asl then ALL_TAC
+                              (* this is the assumption justified by the expression certificate *)
+                              else if tm = (concl th_just4) then ALL_TAC
+                              (* "tmp_arm8_state_PC" ≠ "" *)
+                              else if (is_neq tm) andalso ((snd o dest_eq o dest_neg) tm = ``""``) then
+                                   (ASSUME_TAC (prove(tm, FULL_SIMP_TAC (srw_ss()) [])))
+                              (* it is an existential quantifier, we try to solve this using the assumptions *)
+                              else if (is_exists tm) then
+                                   ((SUBGOAL_THEN tm (fn thm => ASSUME_TAC thm))
+                                    THENL [(FULL_SIMP_TAC (srw_ss()) [
+					    bool_cast_simpl3_tm,
+					    bool_cast_simpl4_tm]), ALL_TAC])
+                              (* env" "" = (NoType,Unknown) *)
+                              else if (is_eq tm) andalso ((snd o dest_eq)tm = ``(NoType,Unknown)``) then
+                                   ((SUBGOAL_THEN tm (fn thm => ASSUME_TAC thm))
+                                    THENL [(FULL_SIMP_TAC (srw_ss()) []), ALL_TAC])
+                              else (print_term tm;
+                                    ALL_TAC))
+                    (hyp th4)
+          )(asl,goal))
+          THEN (ACCEPT_TAC th4)
+          ,
+          ALL_TAC]
       (* For memory the hypotesis must be proved manually *)
-      (ASSUME_TAC (DISCH_ALL th_just4))
-      THEN (REV_FULL_SIMP_TAC (srw_ss()) [])
-      (* (ASSUME_TAC th_just4) *)
-      THEN (ASSUME_TAC th3)
-      (* This is a problem becouse we should not use bool2b_def *)
-      THEN (REV_FULL_SIMP_TAC (srw_ss()) [bool_cast_simpl3_tm, bool_cast_simpl4_tm])
-      THEN (PAT_ASSUM ``p:bool`` (fn thm=> ALL_TAC))
-      (* When we use the memory this can remove the property that we need *)
-      (* since the theorem is a conjunction *)
+      (* due to the exist condition *)
+      (* ((SUBGOAL_THEN ((hd o hyp) th_just4) *)
+      (*                (fn thm => ((ASSUME_TAC thm) THEN (ASSUME_TAC th_just4)))) *)
+      (*                THENL [(FULL_SIMP_TAC (srw_ss()) []), ALL_TAC]) *)
+      (* THEN (MAP_EVERY (fn tm => (SUBGOAL_THEN tm (fn thm => ASSUME_TAC thm)) *)
+      (*                           THENL [(FULL_SIMP_TAC (srw_ss()) []), ALL_TAC]) *)
+      (*                 (hyp (UNDISCH_ALL th3))) *)
+      (* THEN (ASSUME_TAC (UNDISCH_ALL th3)) *)
+      (* THEN (REV_FULL_SIMP_TAC (bool_ss) []) *)
+      (* THEN (SIMP_TAC (srw_ss()) []) *)
       (* THEN (PAT_ASSUM ``p:bool`` (fn thm=> ALL_TAC)) *)
+(* (\* This is a problem becouse we should not use bool2b_def *\) *)
+(*       THEN (REV_FULL_SIMP_TAC (srw_ss()) [bool_cast_simpl3_tm, bool_cast_simpl4_tm]) *)
+(*       THEN (PAT_ASSUM ``p:bool`` (fn thm=> ALL_TAC)) *)
+(*       (\* When we use the memory this can remove the property that we need *\) *)
+(*       (\* since the theorem is a conjunction *\) *)
+(*       (\* THEN (PAT_ASSUM ``p:bool`` (fn thm=> ALL_TAC)) *\) *)
     )
     (asl, curr_goal)
 end
-);
+)
+
+;
 
 fun tc_one_instruction2 inst =
     let val code = arm8AssemblerLib.arm8_code inst;
@@ -464,7 +523,6 @@ tc_one_instruction2 `LDR X0, [X1]`;
 
 tc_one_instruction `STR X1, [X0]`;
 tc_one_instruction2 `STR X1, [X0]`;
-val inst = `STR X1, [X0]`;
 
 tc_one_instruction `ADDS X0, X1, X0`;
 tc_one_instruction2 `ADDS X0, X1, X0`;
@@ -511,7 +569,7 @@ THEN (PROCESS_ONE_ASSIGNMENT certs 6)
 ALL_TAC
 
 
-(* New execution: 31.466 s down from 70 s*)
+val inst = `STR X1, [X0]`;
 val code = arm8AssemblerLib.arm8_code inst;
 val instr = (hd code);
 (* 2.11 seconds *)
@@ -525,13 +583,13 @@ prove(``^goal``,
       (DISCH_TAC) 
 	  THEN (DISCH_TAC) THEN (DISCH_TAC)
 	  THEN (FULL_SIMP_TAC (srw_ss()) [])
-
+    
 THEN (ONE_EXEC2 certs 1)
 THEN (ONE_EXEC2 certs 2)
 THEN (ONE_EXEC2 certs 3)
 THEN (ONE_EXEC2 certs 4)
-THEN (ONE_EXEC2 certs 5)
 
+THEN (ONE_EXEC2 certs 5)
 THEN (ONE_EXEC2 certs 6)
 THEN (ONE_EXEC2 certs 7)
 THEN (ONE_EXEC2 certs 8)
@@ -541,12 +599,16 @@ THEN (ONE_EXEC2 certs 11)
 THEN (ONE_EXEC2 certs 12)
 THEN (ONE_EXEC2 certs 13)
 
+(* THEN (ONE_EXEC2 certs 5) *)
+
 (* Computation completed *)
 THEN (FULL_SIMP_TAC (srw_ss()) [Once bil_exec_step_n_def])
 THEN DISCH_TAC
+
 (* use the step theorem *)
 THEN (ASSUME_TAC (UNDISCH_ALL (SIMP_RULE myss [] (DISCH_ALL step))))
 THEN (FULL_SIMP_TAC (srw_ss()) [])
+
 THEN (RW_TAC (srw_ss()) [combinTheory.UPDATE_def, bool2b_def])
 );
 
@@ -597,9 +659,5 @@ val curr_goal = ``
 ∃m.
   (bs1.environ "arm8_state_MEM" = (MemByte Bit64,Mem Bit64 m)) ∧
   ∀a. m (Reg64 a) = Reg8 (s1.MEM a)
-``;
-
-
-
-
+  ``;
 
