@@ -95,6 +95,7 @@ fun tc_gen_goal p certs step =
          (env "" = (NoType,Unknown)) /\
          ((env "R0") = (Reg Bit64, Int (Reg64 (s.REG 0w)))) /\
          ((env "R1") = (Reg Bit64, Int (Reg64 (s.REG 1w)))) /\
+         ((env "R2") = (Reg Bit64, Int (Reg64 (s.REG 2w)))) /\
          ((env "R30") = (Reg Bit64, Int (Reg64 (s.REG 30w)))) /\
          ((env "ProcState_C") = (Reg Bit1, Int (bool2b s.PSTATE.C))) /\
          ((env "ProcState_N") = (Reg Bit1, Int (bool2b s.PSTATE.N))) /\
@@ -104,6 +105,7 @@ fun tc_gen_goal p certs step =
          ((env "arm8_state_SP_EL0") = (Reg Bit64, Int (Reg64 (s.SP_EL0)))) /\
          (?v.((env "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((env "tmp_R2") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((env "tmp_ProcState_C") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((env "tmp_ProcState_N") = (Reg Bit1, Int (Reg1 (v))))) /\
@@ -128,6 +130,7 @@ fun tc_gen_goal p certs step =
          (bs1.environ "" = (NoType,Unknown)) /\
          ((bs1.environ "R0") = (Reg Bit64, Int (Reg64 (s1.REG 0w)))) /\
          ((bs1.environ "R1") = (Reg Bit64, Int (Reg64 (s1.REG 1w)))) /\
+         ((bs1.environ "R2") = (Reg Bit64, Int (Reg64 (s1.REG 2w)))) /\
          ((bs1.environ "R30") = (Reg Bit64, Int (Reg64 (s1.REG 30w)))) /\
          ((bs1.environ "ProcState_C") = (Reg Bit1, Int (bool2b s1.PSTATE.C))) /\
          ((bs1.environ "ProcState_N") = (Reg Bit1, Int (bool2b s1.PSTATE.N))) /\
@@ -137,6 +140,7 @@ fun tc_gen_goal p certs step =
          ((bs1.environ "arm8_state_SP_EL0") = (Reg Bit64, Int (Reg64 (s1.SP_EL0)))) /\
          (?v.((bs1.environ "tmp_R0") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R1") = (Reg Bit64, Int (Reg64 (v))))) /\
+         (?v.((bs1.environ "tmp_R2") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_R30") = (Reg Bit64, Int (Reg64 (v))))) /\
          (?v.((bs1.environ "tmp_ProcState_C") = (Reg Bit1, Int (Reg1 (v))))) /\
          (?v.((bs1.environ "tmp_ProcState_N") = (Reg Bit1, Int (Reg1 (v))))) /\
@@ -676,7 +680,6 @@ val curr_goal = ``
 (* 0000000000000000 <internal_mul>: *)
 (*    0:   d10103ff        sub     sp, sp, #0x40 *)
 tc_one_instruction2_by_bin "d10103ff";
-val instr = "d10103ff";
 (* OK *)
 
 (*    4:   f9000fe0        str     x0, [sp,#24] *)
