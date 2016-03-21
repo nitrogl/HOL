@@ -735,7 +735,7 @@ tc_one_instruction2_by_bin "b94007e0";
 
 (*   40:   531f7801        lsl     w1, w0, #1 *)
 tc_one_instruction2_by_bin "531f7801";
-(* `<>` unsupported: 32 bit *)
+(* OK *)
 
 (*   44:   b9403be0        ldr     w0, [sp,#56] *)
 tc_one_instruction2_by_bin "b9403be0";

@@ -1192,8 +1192,11 @@ val normalize_16_bit_zero_write_thm = prove(``
   FULL_SIMP_TAC (srw_ss()) []
 );
 
-val ror_to_std_op_thm  = blastLib.BBLAST_PROVE(`` !x y . (word_ror_bv (x:word64) y) =
+val ror64_to_std_op_thm  = blastLib.BBLAST_PROVE(`` !x y . (word_ror_bv (x:word64) y) =
          ((x >>>~ (y && 63w:word64)) || (x <<~ ( (-y) && 63w:word64 )))
+``);
+val ror32_to_std_op_thm  = blastLib.BBLAST_PROVE(`` !x y . (word_ror_bv (x:word32) y) =
+         ((x >>>~ (y && 31w:word32)) || (x <<~ ( (-y) && 31w:word32 )))
 ``);
 
 
@@ -1378,19 +1381,19 @@ fun tc_exp_arm8_prefix ae prefix =
         else  if          (wordsSyntax.is_word_ror     ae)
           then
             let
-               val num_64 = (numSyntax.dest_numeral o numSyntax.term_of_int) 64;
-               val num_o2 = (numSyntax.dest_numeral) o2;
-               val word_o2 = (wordsSyntax.mk_word(num_o2,num_64));
-               val num_to_w_thm = prove(``w2n (^word_o2) = ^o2``, (FULL_SIMP_TAC (srw_ss()) []));
-               val ror_bv_thm = ISPECL [o1, word_o2] (wordsTheory.word_ror_bv_def);
-               val std_op_thm = SYM(SPECL [o1,  word_o2] ror_to_std_op_thm);
-               val nexp = (fst o dest_eq o concl) std_op_thm;               
-               val (be, ae1, mp) = tce nexp;
-               val mp = SPEC ``s:arm8_state`` mp;
-               val mp = REWRITE_RULE [std_op_thm] mp;
-               val mp = REWRITE_RULE [ror_bv_thm] mp;
-               val mp = REWRITE_RULE [num_to_w_thm] mp;
-               val mp = GEN_ALL mp;
+              val num_bits = (numSyntax.dest_numeral o numSyntax.term_of_int) (if (type_of ae = ``:word64``) then 64 else 32);
+              val num_o2 = (numSyntax.dest_numeral) o2;
+              val word_o2 = (wordsSyntax.mk_word(num_o2,num_bits));
+              val num_to_w_thm = prove(``w2n (^word_o2) = ^o2``, (FULL_SIMP_TAC (srw_ss()) []));
+              val ror_bv_thm = ISPECL [o1, word_o2] (wordsTheory.word_ror_bv_def);
+              val std_op_thm = SYM(SPECL [o1,  word_o2] (if (type_of ae = ``:word64``) then ror64_to_std_op_thm else ror32_to_std_op_thm));
+              val nexp = (fst o dest_eq o concl) std_op_thm;               
+              val (be, ae1, mp) = tce nexp;
+              val mp = SPEC ``s:arm8_state`` mp;
+              val mp = REWRITE_RULE [std_op_thm] mp;
+              val mp = REWRITE_RULE [ror_bv_thm] mp;
+              val mp = REWRITE_RULE [num_to_w_thm] mp;
+              val mp = GEN_ALL mp;
             in
               (be, ae, mp)
             end
@@ -1497,6 +1500,7 @@ fun tc_exp_arm8_prefix ae prefix =
       	      in
 		  (be, ae, mp)
               end)
+	     handle _ => raise UnsupportedARM8ExpressionException ae
 	    )
 	else
 	    raise UnsupportedARM8ExpressionException ae
