@@ -1142,6 +1142,11 @@ val bil_op_tms =
        prove(``∀(env :environment) (x :word16) (bx :bil_exp_t).
 	       (bil_eval_exp bx env = Int (Reg16 x)) ⇒
 	       (bil_eval_exp (Cast bx Bit32) env =	Int (Reg32 (w2w x :word32)))``,
+         BIL_OP_TAC)),
+      (``(w2w :word64 -> word16)``,  ``LowCast (bx :bil_exp_t) Bit16``, ``Reg64``,
+       prove(``∀(env :environment) (x :word64) (bx :bil_exp_t).
+	       (bil_eval_exp bx env = Int (Reg64 x)) ⇒
+	       (bil_eval_exp (LowCast bx Bit16) env =	Int (Reg16 (w2w x :word16)))``,
          BIL_OP_TAC))
      ]
     (* Manual proofs *)

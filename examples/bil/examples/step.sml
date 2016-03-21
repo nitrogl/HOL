@@ -799,6 +799,68 @@ tc_one_instruction2_by_bin "b9403be0";
 tc_one_instruction2_by_bin "0b000020";
 (* fc:   93407c00        sxtw    x0, w0 *)
 tc_one_instruction2_by_bin "93407c00";
+(* 100:   91000400        add     x0, x0, #0x1 *)
+tc_one_instruction2_by_bin "91000400";
+(* 104:   d37ff800        lsl     x0, x0, #1 *)
+tc_one_instruction2_by_bin "d37ff800";
+(* 108:   f94007e1        ldr     x1, [sp,#8] *)
+tc_one_instruction2_by_bin "f94007e1";
+(* 10c:   8b000020        add     x0, x1, x0 *)
+tc_one_instruction2_by_bin "8b000020";
+(* 110:   f9401be1        ldr     x1, [sp,#48] *)
+tc_one_instruction2_by_bin "f9401be1";
+(* 114:   53003c21        uxth    w1, w1 *)
+tc_one_instruction2_by_bin "53003c21";
+(* 118:   79000001        strh    w1, [x0] *)
+tc_one_instruction2_by_bin "79000001";
+(* 11c:   f9401be0        ldr     x0, [sp,#48] *)
+tc_one_instruction2_by_bin "f9401be0";
+(* 120:   d350fc00        lsr     x0, x0, #16 *)
+tc_one_instruction2_by_bin "d350fc00";
+(* 124:   f9001be0        str     x0, [sp,#48] *)
+tc_one_instruction2_by_bin "f9001be0";
+(* 128:   b9403be0        ldr     w0, [sp,#56] *)
+tc_one_instruction2_by_bin "b9403be0";
+(* 12c:   51000400        sub     w0, w0, #0x1 *)
+tc_one_instruction2_by_bin "51000400";
+(* 130:   b9003be0        str     w0, [sp,#56] *)
+tc_one_instruction2_by_bin "b9003be0";
+(* 134:   b9403be0        ldr     w0, [sp,#56] *)
+tc_one_instruction2_by_bin "b9403be0";
+(* 138:   6b1f001f        cmp     w0, wzr *)
+tc_one_instruction2_by_bin "6b1f001f";
+(* 13c:   54fffaaa        b.ge    90 <internal_mul+0x90> *)
+tc_one_instruction2_by_bin "54fffaaa";
+(* 140:   b9803fe0        ldrsw   x0, [sp,#60] *)
+tc_one_instruction2_by_bin "b9803fe0";
+(* 144:   d37ff800        lsl     x0, x0, #1 *)
+tc_one_instruction2_by_bin "d37ff800";
+(* 148:   f94007e1        ldr     x1, [sp,#8] *)
+tc_one_instruction2_by_bin "f94007e1";
+(* 14c:   8b000020        add     x0, x1, x0 *)
+tc_one_instruction2_by_bin "8b000020";
+(* 150:   f9401be1        ldr     x1, [sp,#48] *)
+tc_one_instruction2_by_bin "f9401be1";
+(* 154:   53003c21        uxth    w1, w1 *)
+tc_one_instruction2_by_bin "53003c21";
+(* 158:   79000001        strh    w1, [x0] *)
+tc_one_instruction2_by_bin "79000001";
+(* 15c:   b9403fe0        ldr     w0, [sp,#60] *)
+tc_one_instruction2_by_bin "b9403fe0";
+(* 160:   51000400        sub     w0, w0, #0x1 *)
+tc_one_instruction2_by_bin "51000400";
+(* 164:   b9003fe0        str     w0, [sp,#60] *)
+tc_one_instruction2_by_bin "b9003fe0";
+(* 168:   b9403fe0        ldr     w0, [sp,#60] *)
+tc_one_instruction2_by_bin "b9403fe0";
+(* 16c:   6b1f001f        cmp     w0, wzr *)
+tc_one_instruction2_by_bin "6b1f001f";
+(* 170:   54fff78a        b.ge    60 <internal_mul+0x60> *)
+tc_one_instruction2_by_bin "54fff78a";
+(* 174:   910103ff        add     sp, sp, #0x40 *)
+tc_one_instruction2_by_bin "910103ff";
+(* 178:   d65f03c0        ret *)
+tc_one_instruction2_by_bin "d65f03c0";
 
 
 

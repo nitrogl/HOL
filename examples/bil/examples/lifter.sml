@@ -164,10 +164,10 @@ tc_exp_arm8 ``s.MEM (0w:word64) + 2w``;
 
 tc_exp_arm8 ``s.MEM (0w:word64) + (if (s.REG 1w) = 1w then 0w else 1w)``;
 
-(* c8:   93407c00        sxtw    x0, w0 *)
-val [t] = arm8_step_hex "93407c00";
+(* 118:   79000001        strh    w1, [x0] *)
+val [t] = arm8_step_hex "79000001";
 val upds = ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) t);
-val exp = snd(List.nth(upds, 1));
+val exp = snd(List.nth(upds, 2));
 
 
 tc_exp_arm8 exp;
