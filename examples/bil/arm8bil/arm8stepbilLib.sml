@@ -544,6 +544,6 @@ fun a8s2bs_step_program instrl a8s =
 
 
 (* ------------------------------------------------------------------------- *)
-(*  ARMv8 State - BIL State Bisimulation                                     *)
+(*  ARMv8 State - BIL State Bbbisimulation                                     *)
 (* ------------------------------------------------------------------------- *)
 end

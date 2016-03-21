@@ -928,6 +928,10 @@ val Bword_add_thm = Q.store_thm("Bword_add_thm",
 
 val Bword_add_64_thm = (Thm.INST_TYPE [alpha |-> ``:64``])Bword_add_thm;
 
+val word_bit_to_BIT_thm = prove (``!x y . (word_bit x (y:word64)) =
+  (BIT x (w2n y))``,  cheat);
+
+
 
 (* For simplification sule: we first simplify then we lift the simplified one *)
 (* we use transitivity of equality *)
@@ -1452,6 +1456,13 @@ fun tc_exp_arm8_prefix ae prefix =
             in
               (be, ae, mp)
             end
+       else if (wordsSyntax.is_word_bit ae) then
+            let
+              val conv_thm = SYM (SPECL [o1, o2] word_bit_to_BIT_thm);
+              val (be, ae1, mp) = tce ((fst o dest_eq o concl) conv_thm);
+              val mp = REWRITE_RULE [conv_thm] mp;
+            in (be, ae, mp)
+            end
 	(* Memory access *)
 	else if is_mem ae then
 	    let
@@ -1574,8 +1585,20 @@ fun tc_exp_arm8_prefix ae prefix =
 	    raise UnsupportedARM8ExpressionException ae
       end;
     val (be, _, mp) = tce ae;
+    val mp = DISPOSE_HYP mp;
+    (* prove bound on w2n *)
+    (* should this be in dupe_prove that is invoked by DISPOSE_HYP? should this be specific for is_bit?*)
+    val simp_assumptions = List.map (fn tm=>
+        (((SIMP_RULE (bool_ss) []) o
+          (SIMP_CONV (srw_ss()) [Thm.INST_TYPE[alpha |-> ``:64``] wordsTheory.w2n_lt])) tm)
+        handle _ => ASSUME ``T``
+    ) (hyp mp);
+    val mp = List.foldl (fn (hy,th) => if (concl hy) = ``T`` then th
+                                        else (MP (DISCH (concl hy) th) hy)
+    ) mp simp_assumptions;
+    val mp = (GEN_ALL o GENL [``env:environment``, ``s:arm8_state``] o DISCH_ALL_REV) mp
   in
-    (be, ae, (GEN_ALL o GENL [``env:environment``, ``s:arm8_state``] o DISCH_ALL_REV o DISPOSE_HYP) mp)
+    (be, ae, mp)
   end
 ;
 val tc_exp_arm8 = fn ae => tc_exp_arm8_prefix ae "";

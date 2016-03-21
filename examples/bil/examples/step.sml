@@ -773,8 +773,6 @@ tc_one_instruction2_by_bin "b9403be0";
 tc_one_instruction2_by_bin "0b000020";
 (* c8:   93407c00        sxtw    x0, w0 *)
 tc_one_instruction2_by_bin "93407c00";
-(* FAILURE *)
-
 (* cc:   91000400        add     x0, x0, #0x1 *)
 tc_one_instruction2_by_bin "91000400";
 (* d0:   d37ff800        lsl     x0, x0, #1 *)
@@ -801,7 +799,6 @@ tc_one_instruction2_by_bin "b9403be0";
 tc_one_instruction2_by_bin "0b000020";
 (* fc:   93407c00        sxtw    x0, w0 *)
 tc_one_instruction2_by_bin "93407c00";
-(* FAILURE *)
 
 
 
