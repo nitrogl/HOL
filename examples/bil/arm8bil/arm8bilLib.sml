@@ -680,6 +680,33 @@ val mem_word_2exp32_tm = tryprove(
       THEN (blastLib.BBLAST_TAC)
 );
 
+
+val mem_half_word_2exp16_tm = tryprove(
+    ``∀env y x by bx .
+   (?m.
+   ((bil_eval_exp by env = Mem Bit64 m) /\
+   (!a. (m (Reg64 a)) = (Reg8 (y a)))
+   )) /\
+   (bil_eval_exp bx env = Int (Reg64 x))
+   ==>
+   ((bil_eval_exp (Load by bx (Const (Reg1 0w)) Bit16) env) = (Int (Reg16 (mem_half y x))))``,
+    (RW_TAC (srw_ss()) [])
+      THEN (BIL_DEN_TAC)
+      (* the memory access get stuck since we do not know the value of the endianness *)
+      THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def, n2b_1_def, n2bs_def])
+      (* we first open the cast *)
+      THEN (SIMP_TAC (srw_ss()) [bil_cast_def])
+      (* We apply the + definition so we can show that the memory accesses yield always a byte *)
+      THEN (SIMP_TAC (srw_ss()) [bil_add_def])
+      THEN (FULL_SIMP_TAC (srw_ss()) [])
+      (* we first open the shift *)
+      THEN (SIMP_TAC (srw_ss()) [bil_lsl_def, n2b_16_def, n2bs_def])
+      (* we first open the or *)
+      THEN (SIMP_TAC (srw_ss()) [bil_or_def])
+      THEN (SIMP_TAC (srw_ss()) [mem_half_def])
+      THEN (blastLib.BBLAST_TAC)
+);
+
 val carry_thm = prove (``!e v. 
         ((if e < 18446744073709551616 then e 
 	  else e MOD 18446744073709551616) <>
@@ -1105,8 +1132,13 @@ val bil_op_tms =
       (``(w2w :word64 -> word32)``,  ``LowCast (bx :bil_exp_t) Bit32``, ``Reg64``,
        prove(``∀(env :environment) (x :word64) (bx :bil_exp_t).
 	       (bil_eval_exp bx env = Int (Reg64 x)) ⇒
-	       (bil_eval_exp (LowCast bx Bit32) env =
-		Int (Reg32 (w2w x :word32)))``, BIL_OP_TAC))
+	       (bil_eval_exp (LowCast bx Bit32) env =	Int (Reg32 (w2w x :word32)))``,
+         BIL_OP_TAC)),
+      (``(w2w :word16 -> word32)``,  ``Cast (bx :bil_exp_t) Bit32``, ``Reg16``,
+       prove(``∀(env :environment) (x :word16) (bx :bil_exp_t).
+	       (bil_eval_exp bx env = Int (Reg16 x)) ⇒
+	       (bil_eval_exp (Cast bx Bit32) env =	Int (Reg32 (w2w x :word32)))``,
+         BIL_OP_TAC))
      ]
     (* Manual proofs *)
   end
@@ -1428,6 +1460,16 @@ fun tc_exp_arm8_prefix ae prefix =
 		val access_tm = ((SPECL [``"arm8_state_MEM"``, ``MemByte Bit64``, o1] o SPEC_ENV) arm8_to_bil_den_mem_tm)
 		val tce_o1 = (``(Den "arm8_state_MEM")``, o1, GEN_ENV access_tm)
 		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN mem_word_2exp32_tm tce_o1 (tce o2));
+		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+	    in
+		(be, ae, mp)
+	    end
+	(* Memory access half word based *)
+	else if (f0 = ``mem_half``) then
+	    let
+		val access_tm = ((SPECL [``"arm8_state_MEM"``, ``MemByte Bit64``, o1] o SPEC_ENV) arm8_to_bil_den_mem_tm)
+		val tce_o1 = (``(Den "arm8_state_MEM")``, o1, GEN_ENV access_tm)
+		val mp = (GEN_ALL o DISCH_ALL) (MP_BIN mem_half_word_2exp16_tm tce_o1 (tce o2));
 		val be = List.nth ((snd o strip_comb o fst o dest_eq o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
 	    in
 		(be, ae, mp)

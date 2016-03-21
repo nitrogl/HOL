@@ -671,81 +671,147 @@ val curr_goal = ``
 (* 0000000000000000 <internal_mul>: *)
 (*    0:   d10103ff        sub     sp, sp, #0x40 *)
 tc_one_instruction2_by_bin "d10103ff";
-(* OK *)
-
 (*    4:   f9000fe0        str     x0, [sp,#24] *)
 tc_one_instruction2_by_bin "f9000fe0";
-(* OK *)
-
 (*    8:   f9000be1        str     x1, [sp,#16] *)
 tc_one_instruction2_by_bin "f9000be1";
-(* OK *)
-
 (*    c:   f90007e2        str     x2, [sp,#8] *)
 tc_one_instruction2_by_bin "f90007e2";
-(* OK *)
-
 (*   10:   b90007e3        str     w3, [sp,#4] *)
 tc_one_instruction2_by_bin "b90007e3";
-(* OK *)
-
 (*   14:   b9003bff        str     wzr, [sp,#56] *)
 tc_one_instruction2_by_bin "b9003bff";
-(* OK *)
-
 (*   18:   14000009        b       3c <internal_mul+0x3c> *)
 tc_one_instruction2_by_bin "14000009";
-(* OK *)
-
 (*   1c:   b9803be0        ldrsw   x0, [sp,#56] *)
 tc_one_instruction2_by_bin "b9803be0";
-(* OK *)
-
 (*   20:   d37ff800        lsl     x0, x0, #1 *)
 tc_one_instruction2_by_bin "d37ff800";
-(* OK *)
-
 (*   24:   f94007e1        ldr     x1, [sp,#8] *)
 tc_one_instruction2_by_bin "f94007e1";
-(* OK *)
-
 (*   28:   8b000020        add     x0, x1, x0 *)
 tc_one_instruction2_by_bin "8b000020";
-(* OK *)
-
 (*   2c:   7900001f        strh    wzr, [x0] *)
 tc_one_instruction2_by_bin "7900001f";
-(* OK *)
-
 (*   30:   b9403be0        ldr     w0, [sp,#56] *)
 tc_one_instruction2_by_bin "b9403be0";
-(* OK *)
-
 (*   34:   11000400        add     w0, w0, #0x1 *)
 tc_one_instruction2_by_bin "11000400";
-(* OK *)
-
 (*   38:   b9003be0        str     w0, [sp,#56] *)
 tc_one_instruction2_by_bin "b9003be0";
-(* OK *)
-
 (*   3c:   b94007e0        ldr     w0, [sp,#4] *)
 tc_one_instruction2_by_bin "b94007e0";
-(* OK *)
-
 (*   40:   531f7801        lsl     w1, w0, #1 *)
 tc_one_instruction2_by_bin "531f7801";
-(* OK *)
-
 (*   44:   b9403be0        ldr     w0, [sp,#56] *)
 tc_one_instruction2_by_bin "b9403be0";
-(* OK *)
-
 (*   48:   6b00003f        cmp     w1, w0 *)
 tc_one_instruction2_by_bin "6b00003f";
 (* OK, even if in CMP we are currently cheating *)
 
+(* 4c:   54fffe8c        b.gt    1c <internal_mul+0x1c> *)
+tc_one_instruction2_by_bin "54fffe8c";
+(* 50:   b94007e0        ldr     w0, [sp,#4] *)
+tc_one_instruction2_by_bin "b94007e0";
+(* 54:   51000400        sub     w0, w0, #0x1 *)
+tc_one_instruction2_by_bin "51000400";
+(* 58:   b9003fe0        str     w0, [sp,#60] *)
+tc_one_instruction2_by_bin "b9003fe0";
+(* 5c:   14000043        b       168 <internal_mul+0x168> *)
+tc_one_instruction2_by_bin "14000043";
+(* 60:   b9803fe0        ldrsw   x0, [sp,#60] *)
+tc_one_instruction2_by_bin "b9803fe0";
+(* 64:   d37ff800        lsl     x0, x0, #1 *)
+tc_one_instruction2_by_bin "d37ff800";
+(* 68:   f9400fe1        ldr     x1, [sp,#24] *)
+tc_one_instruction2_by_bin "f9400fe1";
+(* 6c:   8b000020        add     x0, x1, x0 *)
+tc_one_instruction2_by_bin "8b000020";
 
+(* 70:   79400000        ldrh    w0, [x0] *)
+tc_one_instruction2_by_bin "79400000";
+(* FAILURE *)
+
+(* 74:   53003c00        uxth    w0, w0 *)
+tc_one_instruction2_by_bin "53003c00";
+(* 78:   f90017e0        str     x0, [sp,#40] *)
+tc_one_instruction2_by_bin "f90017e0";
+(* 7c:   f9001bff        str     xzr, [sp,#48] *)
+tc_one_instruction2_by_bin "f9001bff";
+(* FAILURE *)
+
+(* 80:   b94007e0        ldr     w0, [sp,#4] *)
+tc_one_instruction2_by_bin "b94007e0";
+(* 84:   51000400        sub     w0, w0, #0x1 *)
+tc_one_instruction2_by_bin "51000400";
+(* 88:   b9003be0        str     w0, [sp,#56] *)
+tc_one_instruction2_by_bin "b9003be0";
+(* 8c:   1400002a        b       134 <internal_mul+0x134> *)
+tc_one_instruction2_by_bin "1400002a";
+(* 90:   b9803be0        ldrsw   x0, [sp,#56] *)
+tc_one_instruction2_by_bin "b9803be0";
+(* 94:   d37ff800        lsl     x0, x0, #1 *)
+tc_one_instruction2_by_bin "d37ff800";
+(* 98:   f9400be1        ldr     x1, [sp,#16] *)
+tc_one_instruction2_by_bin "f9400be1";
+(* 9c:   8b000020        add     x0, x1, x0 *)
+tc_one_instruction2_by_bin "8b000020";
+
+(* a0:   79400000        ldrh    w0, [x0] *)
+tc_one_instruction2_by_bin "79400000";
+(* FAILURE *)
+
+(* a4:   53003c01        uxth    w1, w0 *)
+tc_one_instruction2_by_bin "53003c01";
+(* a8:   f94017e0        ldr     x0, [sp,#40] *)
+tc_one_instruction2_by_bin "f94017e0";
+(* ac:   9b007c20        mul     x0, x1, x0 *)
+tc_one_instruction2_by_bin "9b007c20";
+(* b0:   f9401be1        ldr     x1, [sp,#48] *)
+tc_one_instruction2_by_bin "f9401be1";
+(* b4:   8b000020        add     x0, x1, x0 *)
+tc_one_instruction2_by_bin "8b000020";
+(* b8:   f9001be0        str     x0, [sp,#48] *)
+tc_one_instruction2_by_bin "f9001be0";
+(* bc:   b9403fe1        ldr     w1, [sp,#60] *)
+tc_one_instruction2_by_bin "b9403fe1";
+(* c0:   b9403be0        ldr     w0, [sp,#56] *)
+tc_one_instruction2_by_bin "b9403be0";
+(* c4:   0b000020        add     w0, w1, w0 *)
+tc_one_instruction2_by_bin "0b000020";
+(* c8:   93407c00        sxtw    x0, w0 *)
+tc_one_instruction2_by_bin "93407c00";
+(* FAILURE *)
+
+(* cc:   91000400        add     x0, x0, #0x1 *)
+tc_one_instruction2_by_bin "91000400";
+(* d0:   d37ff800        lsl     x0, x0, #1 *)
+tc_one_instruction2_by_bin "d37ff800";
+(* d4:   f94007e1        ldr     x1, [sp,#8] *)
+tc_one_instruction2_by_bin "f94007e1";
+(* d8:   8b000020        add     x0, x1, x0 *)
+tc_one_instruction2_by_bin "8b000020";
+(* dc:   79400000        ldrh    w0, [x0] *)
+tc_one_instruction2_by_bin "79400000";
+(* FAILURE *)
+
+(* e0:   53003c00        uxth    w0, w0 *)
+tc_one_instruction2_by_bin "53003c00";
+(* e4:   f9401be1        ldr     x1, [sp,#48] *)
+tc_one_instruction2_by_bin "f9401be1";
+(* e8:   8b000020        add     x0, x1, x0 *)
+tc_one_instruction2_by_bin "8b000020";
+(* ec:   f9001be0        str     x0, [sp,#48] *)
+tc_one_instruction2_by_bin "f9001be0";
+(* f0:   b9403fe1        ldr     w1, [sp,#60] *)
+tc_one_instruction2_by_bin "b9403fe1";
+(* f4:   b9403be0        ldr     w0, [sp,#56] *)
+tc_one_instruction2_by_bin "b9403be0";
+(* f8:   0b000020        add     w0, w1, w0 *)
+tc_one_instruction2_by_bin "0b000020";
+(* fc:   93407c00        sxtw    x0, w0 *)
+tc_one_instruction2_by_bin "93407c00";
+(* FAILURE *)
 
 
 
