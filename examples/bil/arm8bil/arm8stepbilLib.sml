@@ -340,6 +340,25 @@ fun tc_stmt_arm8_hex instr =
     case arm8thl of
         th::[] =>
           let
+            (* Normalize theorem to rewrite constants for immediate values *)
+            (* Transform hypotesys like Some(constant1,constant2) = Some(v1, v2 )*)
+            (* in (constant1=v1), (constant2=v2) *)
+            val ass_some = (List.filter (fn tm =>
+                (is_eq tm) andalso ((optionLib.is_some o snd o dest_eq) tm) andalso ((optionLib.is_some o snd o dest_eq) tm)
+                ) (hyp th));
+            val ass_some = List.map (SIMP_CONV (srw_ss()) []) ass_some;
+            val t1 = List.foldl (fn (thm, main_thm) => (DISCH ((fst o dest_eq o concl) thm) main_thm)) th ass_some;
+            val t2 = REWRITE_RULE ass_some t1;
+            val [t3] = IMP_CANON t2;
+            val t4 = UNDISCH_ALL t3;
+            val t5 = SIMP_RULE (bool_ss) [] t4;
+            (* Apply constants to the conclusion *)
+            val ass_const = (List.filter (fn tm =>
+                (is_eq tm) andalso ((wordsSyntax.is_n2w o fst o dest_eq) tm)
+                ) (hyp t5));
+            val ass_const = List.map (SYM o ASSUME) ass_const;
+            val th = REWRITE_RULE ass_const t5;
+            (* End of normalization for immediate values *)
             (* Filter only supported changes *)
             val a8sch = List.filter (fn (s, v) => List.exists (fn x => x = s) arm8_supported_fields_str) ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) th);
             val certify_assignments = List.map (fn (s, a8e) =>

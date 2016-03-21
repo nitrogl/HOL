@@ -108,23 +108,6 @@ val new_exp_thm = (SIMP_CONV (myss) [
 val ae1 = (snd o dest_eq o concl) new_exp_thm;
 tc_exp_arm8 ae1;
 
-val plus1_lt_2exp64_tm = GSYM (tryprove(
-    ``∀ x y . 
-      (((x // 2w) + (y // 2w) + (word_mod x 2w) * (word_mod y 2w)) <+
-       (9223372036854775808w:word64)) =
-      (w2n x + w2n (~y) + 1 < 18446744073709551616)
-    ``,
-	(REPEAT STRIP_TAC)
-	THEN (EVAL_TAC)
-	THEN ((FULL_SIMP_TAC (arith_ss) [arithmeticTheory.MOD_PLUS, DIV_PRODMOD_LT_2EXP]))
-	THEN  (FULL_SIMP_TAC (pure_ss) [prove(``(18446744073709551616:num) = 2 ** SUC 63``, EVAL_TAC), SPECL [``63:num``, ``w2n(x:word64)``, ``w2n(y:word64)``] SUM_2EXP_EQ])
-	THEN (ASSUME_TAC (SPECL [``63:num``, ``w2n(x:word64)``, ``w2n(y:word64)``] DIV_PRODMOD_LT_2EXP))
-	THEN (ASSUME_TAC (ISPEC ``x:word64`` wordsTheory.w2n_lt))
-	THEN (ASSUME_TAC (ISPEC ``y:word64`` wordsTheory.w2n_lt))
-	THEN (FULL_SIMP_TAC (srw_ss()) [wordsTheory.dimword_64])
-	THEN ((FULL_SIMP_TAC (arith_ss) []))
-));
-
 
 
 
@@ -181,57 +164,18 @@ tc_exp_arm8 ``s.MEM (0w:word64) + 2w``;
 
 tc_exp_arm8 ``s.MEM (0w:word64) + (if (s.REG 1w) = 1w then 0w else 1w)``;
 
-(*   14:   b9003bff        str     wzr, [sp,#56] *)
-val [t] = arm8_step_hex "b9003bff";
+(*   20:   d37ff800        lsl     x0, x0, #1 *)
+val [t] = arm8_step_hex "d37ff800";
 val upds = ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) t);
-val exp = snd(List.nth(upds, 2));
+val exp = snd(List.nth(upds, 1));
+
 tc_exp_arm8 exp;
 
-tc_exp_arm8  ``mem_word s.MEM (s.SP_EL0 + 56w)``;
-
-
+val ae = exp;
 val prefix = "";
-val ae = exp;
 val (o1, o2, o3) = extract_operands ae;
 val f0 = extract_fun ae;
 
-val conv_th = SIMP_CONV (bool_ss) [Once normalize_32_bit_zero_write_thm] ae;
-val exp1 = (snd o dest_eq o concl) conv_th;
-tc_exp_arm8 exp1;
 
 
-val (i, _) = match_term ``
-((ha + 3w:word64 =+ c1:word8)
-    ((ha + 2w =+ c2:word8)
-       ((ha + 1w =+ c3:word8)
-          ((ha =+ (7 >< 0) hv) c4:word8))))`` ae;
-
-
-
-(((c1:word8 @@ c2:word8):word16 @@ c3:word8):word24 @@ c4:word8):word32``;
-
-val exp = ``(w2w ((s :arm8_state).REG (3w :word5)) :word32)``;
-tc_exp_arm8 exp;
-
-val ae = exp;
-val (o1, o2, o3) = extract_operands ae;
-val f0 = extract_fun ae;
-
-val (operator,size) = (((fst o strip_comb) ae), (word_size o1));
-val constr = fst (List.nth (List.filter (fn (_, s) => s = size) constructor_size_pairs, 0));
-
-val uopTuples = [(fn s => (fst o strip_comb) ``(w2w ^(nw 0 s)):word32``, fn s => ``LowCast bx Bit32``, BIL_OP_TAC)];
-val g1 = map goalgenerator_uop  (prod constructor_size_pairs uopTuples);
-
-
-(select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1));
-
-val mp = (GEN_ALL o DISCH_ALL) (MP_UN (select_bil_op_theorem ((fst o strip_comb) ae) (word_size o1)) (tce o1))
-
-
-
-val [t] = arm8_step_hex "f9000be1";
-val upds = ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) t);
-val exp = snd(List.nth(upds, 2));
-tc_exp_arm8 exp;
 

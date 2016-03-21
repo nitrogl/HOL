@@ -751,7 +751,7 @@ tc_one_instruction2_by_bin "b9803be0";
 
 (*   20:   d37ff800        lsl     x0, x0, #1 *)
 tc_one_instruction2_by_bin "d37ff800";
-(* `<>` unsupported *)
+(* OK *)
 
 (*   24:   f94007e1        ldr     x1, [sp,#8] *)
 tc_one_instruction2_by_bin "f94007e1";
@@ -767,7 +767,7 @@ tc_one_instruction2_by_bin "7900001f";
 
 (*   30:   b9403be0        ldr     w0, [sp,#56] *)
 tc_one_instruction2_by_bin "b9403be0";
-(* 4 byte load unsupported *)
+(* OK *)
 
 (*   34:   11000400        add     w0, w0, #0x1 *)
 tc_one_instruction2_by_bin "11000400";
@@ -779,7 +779,7 @@ tc_one_instruction2_by_bin "b9003be0";
 
 (*   3c:   b94007e0        ldr     w0, [sp,#4] *)
 tc_one_instruction2_by_bin "b94007e0";
-(* 4 byte load unsupported *)
+(* OK *)
 
 (*   40:   531f7801        lsl     w1, w0, #1 *)
 tc_one_instruction2_by_bin "531f7801";
@@ -787,8 +787,36 @@ tc_one_instruction2_by_bin "531f7801";
 
 (*   44:   b9403be0        ldr     w0, [sp,#56] *)
 tc_one_instruction2_by_bin "b9403be0";
-(* 4 byte load unsupported *)
+(* OK *)
 
 (*   48:   6b00003f        cmp     w1, w0 *)
 tc_one_instruction2_by_bin "6b00003f";
 (* OK, even if in CMP we are currently cheating *)
+
+
+
+(*   20:   d37ff800        lsl     x0, x0, #1 *)
+val [t] = arm8_step_hex "d37ff800";
+val instr = "d37ff800";
+
+
+val ass_some = (List.filter (fn tm =>
+    (is_eq tm) andalso ((optionLib.is_some o snd o dest_eq) tm) andalso ((optionLib.is_some o snd o dest_eq) tm)
+) (hyp t));
+val ass_some = List.map (SIMP_CONV (srw_ss()) []) ass_some;
+val t1 = List.foldl (fn (thm, main_thm) => (DISCH ((fst o dest_eq o concl) thm) main_thm)) t ass_some;
+val t2 = REWRITE_RULE ass_some t1;
+val [t3] = IMP_CANON t2;
+val t4 = UNDISCH_ALL t3;
+val t5 = SIMP_RULE (bool_ss) [] t4;
+
+val ass_const = (List.filter (fn tm =>
+    (is_eq tm) andalso ((wordsSyntax.is_n2w o fst o dest_eq) tm)
+) (hyp t5));
+val ass_const = List.map (SYM o ASSUME) ass_const;
+val t6 = REWRITE_RULE ass_const t5;
+
+val upds = ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) t6);
+val exp = snd(List.nth(upds, 1));
+tc_exp_arm8 exp;
+
