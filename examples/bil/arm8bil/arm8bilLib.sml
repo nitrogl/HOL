@@ -1197,6 +1197,29 @@ val bool_cast_simpl_tm = prove (``!e.(case if e then Reg1 (1w :word1) else Reg1 
 (* prevent >>>~ to become >>> *)
 val myss = simpLib.remove_ssfrags (srw_ss()) ["word shift"];
 
+val normalize_64_bit_zero_write_thm = prove(``
+!ha hm .
+((ha + 7w:word64 =+ 0w:word8)
+((ha + 6w:word64 =+ 0w:word8)
+    ((ha + 5w =+ 0w:word8)
+       ((ha + 4w =+ 0w:word8)
+((ha + 3w:word64 =+ 0w:word8)
+    ((ha + 2w =+ 0w:word8)
+       ((ha + 1w =+ 0w:word8)
+          ((ha =+ 0w:word8) (hm:word64->word8)))))))))
+ =
+((ha + 7w =+ ((63 >< 56) (0w:word64)))
+    ((ha + 6w =+ ((55 >< 48) (0w:word64)))
+       ((ha + 5w =+ ((47 >< 40) (0w:word64)))
+          ((ha + 4w =+ ((39 >< 32) (0w:word64)))
+((ha + 3w =+ ((31 >< 24) (0w:word64)))
+    ((ha + 2w =+ ((23 >< 16) (0w:word64)))
+       ((ha + 1w =+ ((15 >< 8) (0w:word64)))
+          ((ha =+ ((7 >< 0) (0w:word64)))
+        (hm:word64->word8)))))))))
+``,
+  FULL_SIMP_TAC (srw_ss()) []
+);
 val normalize_32_bit_zero_write_thm = prove(``
 !ha hm .
 ((ha + 3w:word64 =+ 0w:word8)
@@ -1532,7 +1555,10 @@ fun tc_exp_arm8_prefix ae prefix =
 	     end)
 	     handle _ =>
              (* patch to support writes of zero *)
-            (let val new_exp_thm = (SIMP_CONV (bool_ss) [normalize_32_bit_zero_write_thm, normalize_16_bit_zero_write_thm] ae)
+            (let val new_exp_thm = (SIMP_CONV (bool_ss) [
+                 normalize_64_bit_zero_write_thm,
+                 normalize_32_bit_zero_write_thm,
+                 normalize_16_bit_zero_write_thm] ae)
       		  val ae0 = (fst o dest_eq o concl) new_exp_thm
       		  val ae1 = (snd o dest_eq o concl) new_exp_thm
 		  val (be, ae, mp) = (tce ae1);

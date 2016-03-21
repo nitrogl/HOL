@@ -727,19 +727,14 @@ tc_one_instruction2_by_bin "d37ff800";
 tc_one_instruction2_by_bin "f9400fe1";
 (* 6c:   8b000020        add     x0, x1, x0 *)
 tc_one_instruction2_by_bin "8b000020";
-
 (* 70:   79400000        ldrh    w0, [x0] *)
 tc_one_instruction2_by_bin "79400000";
-(* FAILURE *)
-
 (* 74:   53003c00        uxth    w0, w0 *)
 tc_one_instruction2_by_bin "53003c00";
 (* 78:   f90017e0        str     x0, [sp,#40] *)
 tc_one_instruction2_by_bin "f90017e0";
 (* 7c:   f9001bff        str     xzr, [sp,#48] *)
 tc_one_instruction2_by_bin "f9001bff";
-(* FAILURE *)
-
 (* 80:   b94007e0        ldr     w0, [sp,#4] *)
 tc_one_instruction2_by_bin "b94007e0";
 (* 84:   51000400        sub     w0, w0, #0x1 *)
@@ -756,11 +751,8 @@ tc_one_instruction2_by_bin "d37ff800";
 tc_one_instruction2_by_bin "f9400be1";
 (* 9c:   8b000020        add     x0, x1, x0 *)
 tc_one_instruction2_by_bin "8b000020";
-
 (* a0:   79400000        ldrh    w0, [x0] *)
 tc_one_instruction2_by_bin "79400000";
-(* FAILURE *)
-
 (* a4:   53003c01        uxth    w1, w0 *)
 tc_one_instruction2_by_bin "53003c01";
 (* a8:   f94017e0        ldr     x0, [sp,#40] *)
@@ -793,8 +785,6 @@ tc_one_instruction2_by_bin "f94007e1";
 tc_one_instruction2_by_bin "8b000020";
 (* dc:   79400000        ldrh    w0, [x0] *)
 tc_one_instruction2_by_bin "79400000";
-(* FAILURE *)
-
 (* e0:   53003c00        uxth    w0, w0 *)
 tc_one_instruction2_by_bin "53003c00";
 (* e4:   f9401be1        ldr     x1, [sp,#48] *)
