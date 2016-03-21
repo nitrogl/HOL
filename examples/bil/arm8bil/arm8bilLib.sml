@@ -1142,6 +1142,21 @@ val normalize_32_bit_zero_write_thm = prove(``
 ``,
   FULL_SIMP_TAC (srw_ss()) []
 );
+val normalize_16_bit_zero_write_thm = prove(``
+!ha hm .
+       ((ha + 1w =+ 0w:word8)
+          ((ha =+ 0w:word8) (hm:word64->word8)))
+ =
+       ((ha + 1w =+ ((15 >< 8) (0w:word16)))
+          ((ha =+ ((7 >< 0) (0w:word16)))
+        (hm:word64->word8)))
+``,
+  FULL_SIMP_TAC (srw_ss()) []
+);
+
+val ror_to_std_op_thm  = blastLib.BBLAST_PROVE(`` !x y . (word_ror_bv (x:word64) y) =
+         ((x >>>~ (y && 63w:word64)) || (x <<~ ( (-y) && 63w:word64 )))
+``);
 
 
 (* Transcompiler arm8 expressions to BIL model expressions *)
@@ -1322,6 +1337,25 @@ fun tc_exp_arm8_prefix ae prefix =
             in
               (be, ae, mp)
             end
+        else  if          (wordsSyntax.is_word_ror     ae)
+          then
+            let
+               val num_64 = (numSyntax.dest_numeral o numSyntax.term_of_int) 64;
+               val num_o2 = (numSyntax.dest_numeral) o2;
+               val word_o2 = (wordsSyntax.mk_word(num_o2,num_64));
+               val num_to_w_thm = prove(``w2n (^word_o2) = ^o2``, (FULL_SIMP_TAC (srw_ss()) []));
+               val ror_bv_thm = ISPECL [o1, word_o2] (wordsTheory.word_ror_bv_def);
+               val std_op_thm = SYM(SPECL [o1,  word_o2] ror_to_std_op_thm);
+               val nexp = (fst o dest_eq o concl) std_op_thm;               
+               val (be, ae1, mp) = tce nexp;
+               val mp = SPEC ``s:arm8_state`` mp;
+               val mp = REWRITE_RULE [std_op_thm] mp;
+               val mp = REWRITE_RULE [ror_bv_thm] mp;
+               val mp = REWRITE_RULE [num_to_w_thm] mp;
+               val mp = GEN_ALL mp;
+            in
+              (be, ae, mp)
+            end
 	(* Memory access *)
 	else if is_mem ae then
 	    let
@@ -1397,9 +1431,25 @@ fun tc_exp_arm8_prefix ae prefix =
 	     in
 		 (be, ae, mp)
 	     end)
+	    handle _ => 
+	    (let 
+		 val (i, _) = match_term ``
+       ((ha + 1w =+ (15 >< 8) hv)
+          ((ha =+ (7 >< 0) hv) (hm:word64->word8)))`` ae
+		 val access_tm = ((SPECL [``"arm8_state_MEM"``, ``MemByte Bit64``, (subst i ``hm:word64->word8``)] o SPEC_ENV) arm8_to_bil_den_mem_tm);
+		 val (be1, ae1, thm1) = (``(Den "arm8_state_MEM")``, (subst i ``hm:word64->word8``), GEN_ENV access_tm);
+		 val (be2, ae2, thm2) = (tce (subst i ``ha:word64``));
+		 val (be3, ae3, thm3) = (tce (subst i ``hv:word32``));
+		 val thImp = mem_word_write_tm;
+		 val mp = (GEN_ALL o DISCH_ALL) (MP_ITE thImp (be1, ae1, thm1) (be2, ae2, thm2) (be3, ae3, thm3));
+		 val be = List.nth ((snd o strip_comb o fst o dest_conj o snd o dest_exists o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
+		 val be = List.nth ((snd o strip_comb) be, 0);
+	     in
+		 (be, ae, mp)
+	     end)
 	     handle _ =>
              (* patch to support writes of zero *)
-             (let val new_exp_thm = (SIMP_CONV (bool_ss) [normalize_32_bit_zero_write_thm] ae)
+            (let val new_exp_thm = (SIMP_CONV (bool_ss) [normalize_32_bit_zero_write_thm, normalize_16_bit_zero_write_thm] ae)
       		  val ae0 = (fst o dest_eq o concl) new_exp_thm
       		  val ae1 = (snd o dest_eq o concl) new_exp_thm
 		  val (be, ae, mp) = (tce ae1);

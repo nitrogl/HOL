@@ -165,9 +165,9 @@ tc_exp_arm8 ``s.MEM (0w:word64) + 2w``;
 tc_exp_arm8 ``s.MEM (0w:word64) + (if (s.REG 1w) = 1w then 0w else 1w)``;
 
 (*   20:   d37ff800        lsl     x0, x0, #1 *)
-val [t] = arm8_step_hex "d37ff800";
+val [t] = arm8_step_hex "7900001f";
 val upds = ((extract_arm8_changes o optionSyntax.dest_some o snd o dest_comb o concl) t);
-val exp = snd(List.nth(upds, 1));
+val exp = snd(List.nth(upds, 2));
 
 tc_exp_arm8 exp;
 
@@ -175,6 +175,8 @@ val ae = exp;
 val prefix = "";
 val (o1, o2, o3) = extract_operands ae;
 val f0 = extract_fun ae;
+
+(type_of ae) = ``:word64->word8``l
 
 
 

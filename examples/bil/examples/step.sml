@@ -187,34 +187,34 @@ fun tc_one_instruction inst =
     end;
 
 
-val inst = `MOV X0, #1`;
-tc_one_instruction `MOV X0, #1`;
-tc_one_instruction `MOV X0, #2`;
-tc_one_instruction `ADD X0, X0, X0`;
-tc_one_instruction `MOV X1, #1`;
-tc_one_instruction `MOV X0, X1`;
-tc_one_instruction `ADD X1, X1, X0`;
-tc_one_instruction `ADD X0, X1, #42 `;
+(* val inst = `MOV X0, #1`; *)
+(* tc_one_instruction `MOV X0, #1`; *)
+(* tc_one_instruction `MOV X0, #2`; *)
+(* tc_one_instruction `ADD X0, X0, X0`; *)
+(* tc_one_instruction `MOV X1, #1`; *)
+(* tc_one_instruction `MOV X0, X1`; *)
+(* tc_one_instruction `ADD X1, X1, X0`; *)
+(* tc_one_instruction `ADD X0, X1, #42 `; *)
 
-tc_one_instruction `BR X0`;
-tc_one_instruction `BLR X0`;
+(* tc_one_instruction `BR X0`; *)
+(* tc_one_instruction `BLR X0`; *)
 
-tc_one_instruction `BIC X0, X0, X1`;
+(* tc_one_instruction `BIC X0, X0, X1`; *)
 
-(*  Other flags: *)
-(* EQ, NE, CS, HS, CC, LO, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL, NV  *)
-tc_one_instruction `CSINC X0, X1, X0, NE`;
-tc_one_instruction `CSINC X0, X1, X0, EQ`;
-tc_one_instruction `CSNEG X0, X1, X0, EQ`;
+(* (\*  Other flags: *\) *)
+(* (\* EQ, NE, CS, HS, CC, LO, MI, PL, VS, VC, HI, LS, GE, LT, GT, LE, AL, NV  *\) *)
+(* tc_one_instruction `CSINC X0, X1, X0, NE`; *)
+(* tc_one_instruction `CSINC X0, X1, X0, EQ`; *)
+(* tc_one_instruction `CSNEG X0, X1, X0, EQ`; *)
 
-tc_one_instruction `LDRSB X0, [X1]`;
-tc_one_instruction `LDR X0, [X1]`;
+(* tc_one_instruction `LDRSB X0, [X1]`; *)
+(* tc_one_instruction `LDR X0, [X1]`; *)
 
-tc_one_instruction `ADDS X0, X1, X0`;
-tc_one_instruction `CMP X0, X1 `;
-(* There are problems since we can not lift the carry flag expression *)
+(* tc_one_instruction `ADDS X0, X1, X0`; *)
+(* tc_one_instruction `CMP X0, X1 `; *)
+(* (\* There are problems since we can not lift the carry flag expression *\) *)
 
-tc_one_instruction `STR X1, [X0]`;
+(* tc_one_instruction `STR X1, [X0]`; *)
 
 
 
@@ -569,53 +569,14 @@ tc_one_instruction `ADDS X0, X1, X0`;
 tc_one_instruction2 `ADDS X0, X1, X0`;
 
 
-(* Speed up the process *)
-val inst = `ADDS X0, X1, X0`;
-(* Complete instruction 70s *)
-(* tc_one_instruction inst; *)
-
-val code = arm8AssemblerLib.arm8_code inst;
-val instr = (hd code);
-(* 2.11 seconds *)
-val (p, certs, [step]) = tc_stmt_arm8_hex instr;
-
-(* goal 0.2s *)
-val goal = tc_gen_goal p certs step;
-
-prove(``^goal``,
- (* first processing 0.6s *)
-      (DISCH_TAC) 
-	  THEN (DISCH_TAC) THEN (DISCH_TAC)
-	  THEN (FULL_SIMP_TAC (srw_ss()) [])
-
-(* Fist assignment 1.984s *)
-HOL_Interactive.toggle_quietdec();
-e (PROCESS_ONE_ASSIGNMENT certs 1);
-HOL_Interactive.toggle_quietdec();
-
-(* Fist assignment 2.492s *)
-THEN (PROCESS_ONE_ASSIGNMENT certs 2)
-(* Fist assignment 3.008s *)
-THEN (PROCESS_ONE_ASSIGNMENT certs 3)
-(* Fist assignment 3.592s *)
-THEN (PROCESS_ONE_ASSIGNMENT certs 4)
-(* Fist assignment 4.232s *)
-THEN (PROCESS_ONE_ASSIGNMENT certs 5)
-(* Fist assignment 4.656s *)
-THEN (PROCESS_ONE_ASSIGNMENT certs 6)
 
 
-(* PROCESS_ONE_ASSIGNMENT 1 *)
-(* An ALL_TAC takes 0.3 s *)
-ALL_TAC
 
 
-val inst = `STR X1, [X0]`;
-val code = arm8AssemblerLib.arm8_code inst;
-val instr = (hd code);
 
-(*   10:   b90007e3        str     w3, [sp,#4] *)
-val instr = "b90007e3";
+
+(*   2c:   7900001f        strh    wzr, [x0] *)
+val instr = "7900001f";
 (* 2.11 seconds *)
 val (p, certs, [step]) = tc_stmt_arm8_hex instr;
 
@@ -633,15 +594,6 @@ THEN (ONE_EXEC2 certs 2)
 THEN (ONE_EXEC2 certs 3)
 THEN (ONE_EXEC2 certs 4)
 
-THEN (ONE_EXEC2 certs 5)
-THEN (ONE_EXEC2 certs 6)
-THEN (ONE_EXEC2 certs 7)
-THEN (ONE_EXEC2 certs 8)
-THEN (ONE_EXEC2 certs 9)
-THEN (ONE_EXEC2 certs 10)
-THEN (ONE_EXEC2 certs 11)
-THEN (ONE_EXEC2 certs 12)
-THEN (ONE_EXEC2 certs 13)
 
 (* THEN (ONE_EXEC2 certs 5) *)
 
@@ -763,7 +715,7 @@ tc_one_instruction2_by_bin "8b000020";
 
 (*   2c:   7900001f        strh    wzr, [x0] *)
 tc_one_instruction2_by_bin "7900001f";
-(* 2 byte store unsupported *)
+(* OK *)
 
 (*   30:   b9403be0        ldr     w0, [sp,#56] *)
 tc_one_instruction2_by_bin "b9403be0";
@@ -792,6 +744,10 @@ tc_one_instruction2_by_bin "b9403be0";
 (*   48:   6b00003f        cmp     w1, w0 *)
 tc_one_instruction2_by_bin "6b00003f";
 (* OK, even if in CMP we are currently cheating *)
+
+
+
+
 
 
 
