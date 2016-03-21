@@ -176,6 +176,8 @@ val prefix = "";
 val (o1, o2, o3) = extract_operands ae;
 val f0 = extract_fun ae;
 
+val ae = ae1;
+
 (type_of ae) = ``:word64->word8``l
 
 

@@ -818,6 +818,44 @@ val mem_word_write_tm = prove(``^goal``,
 	  THEN (FULL_SIMP_TAC (srw_ss()) [])
       );
 
+val goal = ``∀env hm ha hv bm ba bv .
+   (?m.
+   ((bil_eval_exp bm env = Mem Bit64 m) /\
+   (!a. (m (Reg64 a)) = (Reg8 (hm a)))
+   )) /\
+   (bil_eval_exp ba env = Int (Reg64 ha)) /\
+   (bil_eval_exp bv env = Int (Reg16 hv))
+   ==>
+   (?m.
+   (((bil_eval_exp (Store bm ba bv (Const (Reg1 0w)) Bit16) env) = Mem Bit64 m) /\
+   (!a. (m (Reg64 a)) = (Reg8 (
+                   ((ha + 1w =+ (15 >< 8) hv)
+                      ((ha =+ (7 >< 0) hv) (hm:word64->word8)))
+    a)))
+   ))``;
+val mem_16bit_write_tm = prove(``^goal``,
+	  (RW_TAC (srw_ss()) [])
+	  THEN (BIL_DEN_TAC)
+	  (* the memory access get stuck since we do not know the
+	  value of the endianness *)
+	  THEN (SIMP_TAC (srw_ss()) [Once bil_eval_exp_def, n2b_1_def, n2bs_def])
+	  (* we first open the cast *)
+	  THEN (SIMP_TAC (srw_ss()) [bil_lcast_def, bil_hcast_def, bil_cast_def])
+	  THEN (SIMP_TAC (srw_ss()) [bil_add_def])
+	  THEN (RW_TAC (srw_ss()) [])
+          THEN (FULL_SIMP_TAC (srw_ss()) [combinTheory.UPDATE_def])
+          THEN (Cases_on `(a :word64) = (ha :word64)`)
+	  THENL [
+	    (FULL_SIMP_TAC (srw_ss()) [])
+      THEN (FULL_SIMP_TAC (srw_ss()) [blastLib.BBLAST_PROVE ``ha + (1w :word64) <> ha``])
+	    ,
+	    (FULL_SIMP_TAC (srw_ss()) [])
+	  ]
+    THEN (Cases_on `a = (ha :word64) + (1w :word64)`)
+    THENL [
+      (FULL_SIMP_TAC (srw_ss()) []),
+      (FULL_SIMP_TAC (srw_ss()) [])
+      ]);
 
 (* ------------------------------------------------------------------------- *)
 (*   BIT Theorem : definitions                                                *)
@@ -1439,8 +1477,8 @@ fun tc_exp_arm8_prefix ae prefix =
 		 val access_tm = ((SPECL [``"arm8_state_MEM"``, ``MemByte Bit64``, (subst i ``hm:word64->word8``)] o SPEC_ENV) arm8_to_bil_den_mem_tm);
 		 val (be1, ae1, thm1) = (``(Den "arm8_state_MEM")``, (subst i ``hm:word64->word8``), GEN_ENV access_tm);
 		 val (be2, ae2, thm2) = (tce (subst i ``ha:word64``));
-		 val (be3, ae3, thm3) = (tce (subst i ``hv:word32``));
-		 val thImp = mem_word_write_tm;
+		 val (be3, ae3, thm3) = (tce (subst i ``hv:word16``));
+		 val thImp = mem_16bit_write_tm;
 		 val mp = (GEN_ALL o DISCH_ALL) (MP_ITE thImp (be1, ae1, thm1) (be2, ae2, thm2) (be3, ae3, thm3));
 		 val be = List.nth ((snd o strip_comb o fst o dest_conj o snd o dest_exists o concl o UNDISCH_ALL o SPEC_ALL) mp, 0);
 		 val be = List.nth ((snd o strip_comb) be, 0);
