@@ -1,4 +1,4 @@
-structure arm8stepbilLib :> arm8stepLib =
+structure arm8stepbilLib :> arm8stepbilLib =
 struct
 
 open HolKernel boolLib bossLib Parse;
@@ -349,8 +349,8 @@ fun tc_stmt_arm8_hex instr =
             val ass_some = List.map (SIMP_CONV (srw_ss()) []) ass_some;
             val t1 = List.foldl (fn (thm, main_thm) => (DISCH ((fst o dest_eq o concl) thm) main_thm)) th ass_some;
             val t2 = REWRITE_RULE ass_some t1;
-            val [t3] = IMP_CANON t2;
-            val t4 = UNDISCH_ALL t3;
+            val t3 = IMP_CANON t2;
+            val t4 = UNDISCH_ALL (List.nth 0 t3);
             val t5 = SIMP_RULE (bool_ss) [] t4;
             (* Apply constants to the conclusion *)
             val ass_const = (List.filter (fn tm =>
